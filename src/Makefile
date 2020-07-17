@@ -1,4 +1,4 @@
 service: service.cpp 
-	g++ service.c -o service -g -libverbs
+	g++ $^ -o $@ -g -libverbs
 clean:
 	rm -rf ./*.o ./service
