@@ -25,6 +25,7 @@ libverbs RDMA_RC_example.c
 #include <endian.h>
 #include <byteswap.h>
 #include <getopt.h>
+#include "util.h"
 
 #include <sys/time.h>
 #include <arpa/inet.h>
@@ -159,6 +160,11 @@ static int sock_connect(const char *servername, int port)
                 /* Server mode. Set up listening socket an accept a connection */
                 listenfd = sockfd;
                 sockfd = -1;
+                {
+                    int opt = 1;
+                    // sockfd为需要端口复用的套接字
+                    setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&opt, sizeof(opt));
+                }
                 if (bind(listenfd, iterator->ai_addr, iterator->ai_addrlen))
                     goto sock_connect_exit;
                 listen(listenfd, 1);
@@ -308,6 +314,7 @@ static int poll_completion(struct resources *res)
 ******************************************************************************/
 static int post_send(struct resources *res, int opcode)
 {
+    enum ibv_wr_opcode op_code = (enum ibv_wr_opcode)opcode;
     struct ibv_send_wr sr;
     struct ibv_sge sge;
     struct ibv_send_wr *bad_wr = NULL;
@@ -323,9 +330,9 @@ static int post_send(struct resources *res, int opcode)
     sr.wr_id = 0;
     sr.sg_list = &sge;
     sr.num_sge = 1;
-    sr.opcode = opcode;
+    sr.opcode = op_code;
     sr.send_flags = IBV_SEND_SIGNALED;
-    if (opcode != IBV_WR_SEND)
+    if (op_code != IBV_WR_SEND)
     {
         sr.wr.rdma.remote_addr = res->remote_props.addr;
         sr.wr.rdma.rkey = res->remote_props.rkey;
@@ -336,7 +343,7 @@ static int post_send(struct resources *res, int opcode)
         fprintf(stderr, "failed to post SR\n");
     else
     {
-        switch (opcode)
+        switch (op_code)
         {
         case IBV_WR_SEND:
             fprintf(stdout, "Send Request was posted\n");
@@ -996,11 +1003,11 @@ int main(int argc, char *argv[])
     {
         int c;
         static struct option long_options[] = {
-            {.name = "port", .has_arg = 1, .val = 'p'},
-            {.name = "ib-dev", .has_arg = 1, .val = 'd'},
-            {.name = "ib-port", .has_arg = 1, .val = 'i'},
-            {.name = "gid-idx", .has_arg = 1, .val = 'g'},
-            {.name = NULL, .has_arg = 0, .val = '\0'}};
+            {.name = "port", .has_arg = 1, .flag = 0, .val = 'p'},
+            {.name = "ib-dev", .has_arg = 1, .flag = 0, .val = 'd'},
+            {.name = "ib-port", .has_arg = 1, .flag = 0, .val = 'i'},
+            {.name = "gid-idx", .has_arg = 1, .flag = 0, .val = 'g'},
+            {.name = NULL, .has_arg = 0, .flag = 0, .val = 0}};
         c = getopt_long(argc, argv, "p:d:i:g:", long_options, NULL);
         if (c == -1)
             break;
@@ -1039,6 +1046,7 @@ int main(int argc, char *argv[])
     if (config.server_name)
     {
         printf("servername=%s\n", config.server_name);
+        LOG(INFO) << "Server name is here";
     }
     else if (optind < argc)
     {
