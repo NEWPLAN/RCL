@@ -1,6 +1,6 @@
 
 
-#include "preconnector.h"
+#include "pre_connector.h"
 #include "util.h"
 
 #include <sys/types.h>
@@ -10,6 +10,16 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <chrono>
+#include <thread>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/time.h>
 
 /*
 static std::string make_string(const char *fmt, ...)
@@ -68,7 +78,7 @@ cm_con_data_t TCPSockPreConnector::exchange_qp_data(cm_con_data_t local_con_data
 /*****************************************
 * Function: tcp_sock_connect
 *****************************************/
-void TCPSockPreConnector::ptp_connect()
+void TCPSockPreConnector::pre_connect()
 {
     print_config();
 
@@ -85,7 +95,7 @@ void TCPSockPreConnector::ptp_connect()
     else
     // Server Side
     {
-        LOG(INFO) << "waiting on port" << config.tcp_port << "for TCP connection";
+        LOG(INFO) << "waiting on port " << config.tcp_port << " for TCP connection";
         remote_sock_ = sock_server_connect(config.tcp_port);
         if (remote_sock_ < 0)
         {
@@ -289,49 +299,82 @@ int TCPSockPreConnector::sock_server_connect(int port)
 *****************************************/
 int TCPSockPreConnector::sock_client_connect(const char *server_name, int port)
 {
-    struct addrinfo *res, *t;
-    struct addrinfo hints = {
-        .ai_flags = AI_PASSIVE,
-        .ai_family = AF_UNSPEC,
-        .ai_socktype = SOCK_STREAM};
-
-    char *service;
-    int n;
     int sockfd = -1;
-
-    if (asprintf(&service, "%d", port) < 0)
-    {
-        LOG(FATAL) << "asprintf failed";
-        return -1;
-    }
-
-    n = getaddrinfo(server_name, service, &hints, &res);
-    if (n < 0)
-    {
-        LOG(FATAL) << gai_strerror(n) << " for " << server_name << ":" << port;
-        free(service);
-        return -1;
-    }
-
-    for (t = res; t; t = t->ai_next)
-    {
-        sockfd = socket(t->ai_family, t->ai_socktype, t->ai_protocol);
-        if (sockfd >= 0)
-        {
-            if (!connect(sockfd, t->ai_addr, t->ai_addrlen))
-                break;
-            close(sockfd);
-            sockfd = -1;
-        }
-    }
-    freeaddrinfo(res);
-    free(service);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
     {
-        LOG(FATAL) << "couldn't connect to " << server_name << ":" << port;
-        return -1;
+        LOG(FATAL) << "Error in creating socket for clinet";
     }
+
+    struct sockaddr_in client;
+    client.sin_family = AF_INET;
+    client.sin_addr.s_addr = inet_addr(server_name);
+    client.sin_port = htons(port);
+
+    int try_times = 0;
+    do
+    {
+        LOG_EVERY_N(INFO, 10) << "[" << 60 * 10 * 2 - try_times
+                              << "] Reconnecting to "
+                              << server_name << ":" << port;
+
+        if (connect(sockfd, (struct sockaddr *)&client, sizeof(client)) >= 0)
+        {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        try_times++;
+    } while (try_times < 60 * 10 * 2); //loops for 2 mins, try to connect every 100ms
+
+    if (try_times >= 60 * 10 * 2)
+    {
+        LOG(FATAL) << "Can not connect to server " << server_name << ":" << port;
+    }
+
+    // struct addrinfo *res, *t;
+    // struct addrinfo hints = {
+    //     .ai_flags = AI_PASSIVE,
+    //     .ai_family = AF_UNSPEC,
+    //     .ai_socktype = SOCK_STREAM};
+
+    // char *service;
+    // int n;
+    // int sockfd = -1;
+
+    // if (asprintf(&service, "%d", port) < 0)
+    // {
+    //     LOG(FATAL) << "asprintf failed";
+    //     return -1;
+    // }
+
+    // n = getaddrinfo(server_name, service, &hints, &res);
+    // if (n < 0)
+    // {
+    //     LOG(FATAL) << gai_strerror(n) << " for " << server_name << ":" << port;
+    //     free(service);
+    //     return -1;
+    // }
+
+    // for (t = res; t; t = t->ai_next)
+    // {
+    //     sockfd = socket(t->ai_family, t->ai_socktype, t->ai_protocol);
+    //     if (sockfd >= 0)
+    //     {
+    //         if (!connect(sockfd, t->ai_addr, t->ai_addrlen))
+    //             break;
+    //         close(sockfd);
+    //         sockfd = -1;
+    //     }
+    // }
+    // freeaddrinfo(res);
+    // free(service);
+
+    // if (sockfd < 0)
+    // {
+    //     LOG(FATAL) << "couldn't connect to " << server_name << ":" << port;
+    //     return -1;
+    // }
 
     return sockfd;
 }

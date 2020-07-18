@@ -1,7 +1,8 @@
 #include "util.h"
-#include "preconnector.h"
+#include "pre_connector.h"
 #include <iostream>
 #include <string>
+#include "rdma_session.h"
 
 int main(int argc, char *argv[])
 {
@@ -11,8 +12,8 @@ int main(int argc, char *argv[])
     {
         LOG(INFO) << "Missing Start Up Config" << std::endl
                   << "\t Usage:" << std::endl
-                  << "\t " << argv[0] << " s \t\t#to start the server" << std::endl
-                  << "\t " << argv[0] << " c <sip>\t#to start the client " << std::endl;
+                  << "\t " << argv[0] << " -s \t#to start the server" << std::endl
+                  << "\t " << argv[0] << " -c <sip>\t#to start the client " << std::endl;
         exit(0);
     }
     TCPSockPreConnector *tcp_sock = new TCPSockPreConnector();
@@ -29,6 +30,15 @@ int main(int argc, char *argv[])
             tcp_sock->config.server_name = argv[2];
         LOG(INFO) << "Connecting to " << tcp_sock->config.server_name << ":" << tcp_sock->config.tcp_port;
     }
+    RDMASession *r_session = new RDMASession();
+    RDMAEndpoint *r_endpoint = r_session->pre_connect(tcp_sock);
+
+    do
+    {
+        LOG_EVERY_N(INFO, 20) << "Waiting in the main thread";
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    } while (1);
+
     delete tcp_sock;
     return 0;
 }

@@ -25,7 +25,7 @@ libverbs RDMA_RC_example.c
 #include <endian.h>
 #include <byteswap.h>
 #include <getopt.h>
-#include "util.h"
+#include "../core/util.h"
 
 #include <sys/time.h>
 #include <arpa/inet.h>

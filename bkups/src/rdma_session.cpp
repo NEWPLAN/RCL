@@ -19,7 +19,7 @@ PROG	: RDMA_SESSION_CPP
 
 #define MSG_SIZE 20
 
-RDMA_Session::RDMA_Session(char* dev_name)
+RDMA_Session::RDMA_Session(char *dev_name)
 {
     dev_name_ = dev_name;
 
@@ -75,13 +75,13 @@ RDMA_Session::~RDMA_Session()
 {
     stop_process();
 
-    for (auto i:endpoint_list_)
+    for (auto i : endpoint_list_)
         delete i;
-    
+
     process_thread_.reset();
 
     delete mempool_;
-    
+
     if (ibv_destroy_cq(cq_))
     {
         log_error("Failed to destroy CQ");
@@ -109,26 +109,26 @@ void RDMA_Session::stop_process()
 
 // ----------------------------------------------
 
-RDMA_Endpoint* RDMA_Session::new_endpoint(RDMA_Pre* pre)
+RDMA_Endpoint *RDMA_Session::new_endpoint(RDMA_Pre *pre)
 {
-    RDMA_Endpoint* new_endpoint = new RDMA_Endpoint(pd_, cq_, context_, pre->config.ib_port, CQ_SIZE, mempool_);
+    RDMA_Endpoint *new_endpoint = new RDMA_Endpoint(pd_, cq_, context_, pre->config.ib_port, CQ_SIZE, mempool_);
     endpoint_list_.push_back(new_endpoint);
     new_endpoint->connect(pre->exchange_qp_data(new_endpoint->get_local_con_data()));
 
     return new_endpoint;
 }
 
-void RDMA_Session::delete_endpoint(RDMA_Endpoint* endpoint)
+void RDMA_Session::delete_endpoint(RDMA_Endpoint *endpoint)
 {
-    std::vector<RDMA_Endpoint*>::iterator begin = endpoint_list_.begin();
-    std::vector<RDMA_Endpoint*>::iterator end = endpoint_list_.end();
+    std::vector<RDMA_Endpoint *>::iterator begin = endpoint_list_.begin();
+    std::vector<RDMA_Endpoint *>::iterator end = endpoint_list_.end();
 
-    for (auto i=begin;i!=end;++i)
-    if (*i == endpoint)
-    {
-        endpoint_list_.erase(i);
-        break;
-    }
+    for (auto i = begin; i != end; ++i)
+        if (*i == endpoint)
+        {
+            endpoint_list_.erase(i);
+            break;
+        }
 
     // if (endpoint_list_.empty())
     // {
@@ -138,14 +138,14 @@ void RDMA_Session::delete_endpoint(RDMA_Endpoint* endpoint)
 
 // ----------------------------------------------
 
-RDMA_Endpoint* RDMA_Session::ptp_connect(RDMA_Pre* pre)
+RDMA_Endpoint *RDMA_Session::ptp_connect(RDMA_Pre *pre)
 {
     pre->ptp_connect();
 
     return new_endpoint(pre);
 }
 
-void RDMA_Session::daemon_connect(RDMA_Pre* pre)
+void RDMA_Session::daemon_connect(RDMA_Pre *pre)
 {
     pre_ = pre;
     std::function<void()> func = std::bind(&RDMA_Session::new_endpoint, this, pre);
@@ -176,7 +176,9 @@ int RDMA_Session::open_ib_device()
     {
         log_error(make_string("IB device not found"));
         return 1;
-    } else log_info(make_string("Found %d device(s)", num_devices));
+    }
+    else
+        log_info(make_string("Found %d device(s)", num_devices));
 
     if (!dev_name_)
     {
@@ -185,11 +187,13 @@ int RDMA_Session::open_ib_device()
         {
             log_error("No IB devices found");
             return 1;
-        } log_info(make_string("Choose the first IB device"));
-    } else 
+        }
+        log_info(make_string("Choose the first IB device"));
+    }
+    else
     {
         // search for the specific device we want to work with
-        for (i = 0; i < num_devices; i ++)
+        for (i = 0; i < num_devices; i++)
         {
             if (!strcmp(ibv_get_device_name(dev_list[i]), dev_name_))
             {
@@ -221,8 +225,8 @@ void RDMA_Session::session_processCQ()
     status_ = WORK;
     while (status_ != CLOSED)
     {
-        ibv_cq* cq;
-        void* cq_context;
+        ibv_cq *cq;
+        void *cq_context;
         // Pre-allocated work completions array used for polling
         ibv_wc wc_[CQ_SIZE];
 
@@ -239,45 +243,45 @@ void RDMA_Session::session_processCQ()
         }
 
         ibv_ack_cq_events(cq, 1);
-    
+
         if (ibv_req_notify_cq(cq_, 0))
         {
             log_error("Countn't request CQ notification");
             return;
         }
 
-        int ne = ibv_poll_cq(cq_, CQ_SIZE, static_cast<ibv_wc*>(wc_));
+        int ne = ibv_poll_cq(cq_, CQ_SIZE, static_cast<ibv_wc *>(wc_));
         // VAL(ne);
         if (ne > 0)
-        for (int i=0;i<ne;i++)
-        {
-            if (wc_[i].status != IBV_WC_SUCCESS)
+            for (int i = 0; i < ne; i++)
             {
-                log_error(make_string("Got bad completion with status: 0x%x, vendor syndrome: 0x%x\n", wc_[i].status, wc_[i].vendor_err));
-                return;
-                // error
-            }
-            switch(wc_[i].opcode)
-            {
+                if (wc_[i].status != IBV_WC_SUCCESS)
+                {
+                    log_error(make_string("Got bad completion with status: 0x%x, vendor syndrome: 0x%x\n", wc_[i].status, wc_[i].vendor_err));
+                    return;
+                    // error
+                }
+                switch (wc_[i].opcode)
+                {
                 case IBV_WC_RECV_RDMA_WITH_IMM: // Recv Remote RDMA Write Message
                     RDMA_Message::process_attached_message(wc_[i], this);
                     break;
-                case IBV_WC_RECV:       // Recv Remote RDMA Send Message
+                case IBV_WC_RECV: // Recv Remote RDMA Send Message
                     RDMA_Message::process_immediate_message(wc_[i], this);
                     break;
                 case IBV_WC_RDMA_WRITE: // Successfully Write RDMA Message or Data
                     RDMA_Message::process_write_success(wc_[i], this);
                     break;
-                case IBV_WC_SEND:       // Successfully Send RDMA Message
+                case IBV_WC_SEND: // Successfully Send RDMA Message
                     RDMA_Message::process_send_success(wc_[i], this);
                     break;
-                case IBV_WC_RDMA_READ:  // Successfully Read RDMA Data
+                case IBV_WC_RDMA_READ: // Successfully Read RDMA Data
                     RDMA_Message::process_read_success(wc_[i], this);
                     break;
                 default:
                     log_error("Unsupported opcode");
+                }
             }
-        }
     }
 
     if (pre_)

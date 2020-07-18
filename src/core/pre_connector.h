@@ -8,6 +8,7 @@ struct config_t
     char *server_name; /* daemon host name */
     int tcp_port;      /* daemon TCP port */
     int ib_port;       /* local IB port to work with */
+    int gid_index;     /* gid index */
 };
 
 /* structure to exchange data which is needed to connect the QPs */
@@ -26,7 +27,7 @@ public:
     PreConnector() {}
     virtual ~PreConnector() {}
 
-    virtual void ptp_connect() = 0;
+    virtual void pre_connect() = 0;
 
     virtual void print_config() = 0; //show configure
 
@@ -42,7 +43,8 @@ public:
         //default configure
         ((char *)0), // server_name
         23333,       // tcp_port
-        1            // ib_port
+        1,           // ib_port
+        3            // gid index, default for RoCEv2
     };
 };
 
@@ -58,7 +60,7 @@ public:
     virtual ~TCPSockPreConnector();
 
     //********************inherit from PreConnector************************//
-    void ptp_connect();
+    void pre_connect();
     void daemon_connect(std::function<void()> connect_callback);
     void close_daemon();
     void print_config();
