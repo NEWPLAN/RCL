@@ -644,7 +644,7 @@ static int get_best_gid_index(struct pingpong_context *ctx,
 	}
 	return gid_index;
 }
-
+#include <glog/logging.h>
 /******************************************************************************
  *
  ******************************************************************************/
@@ -658,6 +658,43 @@ static int ethernet_client_connect(struct perftest_comm *comm)
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0)
+	{
+		LOG(FATAL) << "Creating socket error here";
+	}
+
+	LOG(INFO) << "Come to here--------";
+	struct sockaddr_in client;
+	client.sin_family = AF_INET;
+	client.sin_port = htons(comm->rdma_params->port);
+	client.sin_addr.s_addr = inet_addr(comm->rdma_params->servername);
+	if (sockfd >= 0)
+	{
+		int count = 100 * 60 * 2;
+		while (connect(sockfd, (struct sockaddr *)&client, sizeof(client)) != 0)
+		{
+			usleep(10000);
+			count--;
+			if (count <= 0)
+				break;
+			if (count % 200 == 0)
+			{
+				LOG(INFO) << "Try to connect to " << comm->rdma_params->servername << ":" << comm->rdma_params->port;
+			}
+		}
+		if (count >= 0)
+		{
+			comm->rdma_params->sockfd = sockfd;
+			return 0;
+		}
+		close(sockfd);
+		sockfd = -1;
+		fprintf(stderr, "Couldn't connect to %s:%d\n", comm->rdma_params->servername, comm->rdma_params->port);
+		return 1;
+	}
+	return 0;
 
 	if (check_add_port(&service, comm->rdma_params->port, comm->rdma_params->servername, &hints, &res))
 	{
@@ -680,7 +717,7 @@ static int ethernet_client_connect(struct perftest_comm *comm)
 					break;
 				if (count % 200 == 0)
 				{
-					printf("[%s:%d] try to connect to: %s:%d\n", __FILE__, __LINE__, comm->rdma_params->servername, comm->rdma_params->port);
+					LOG(INFO) << "Try to connect to " << comm->rdma_params->servername << ":" << comm->rdma_params->port;
 				}
 			}
 			if (count >= 0)

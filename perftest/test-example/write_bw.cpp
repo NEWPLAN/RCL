@@ -621,8 +621,17 @@ void client_function(std::vector<std::string> ip_addr, char *const argv[], int a
 		}
 		//printf("\n");
 		memcpy(tmp_client_base[argc - 1], peer.c_str(), strlen(tmp_client_base[argc - 1]));
-		client_threads.push_back(new std::thread([argc, tmp_client_base] { ib_write_bw_main(argc, tmp_client_base); }));
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		int pid = fork();
+		if (pid == 0)
+		{
+			char **seconds_client_base = tmp_client_base;
+			ib_write_bw_main(argc, seconds_client_base);
+		}
+
+		// client_threads.push_back(new std::thread([argc, tmp_client_base] {
+		// 	char** seconds_client_base=tmp_client_base;
+		// 	ib_write_bw_main(argc, seconds_client_base); }));
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 	do
 	{
@@ -633,6 +642,8 @@ void client_function(std::vector<std::string> ip_addr, char *const argv[], int a
 
 int main(int argc, char *argv[])
 {
+	// ib_write_bw_main(argc, argv);
+	// return 0;
 	char *server_args[] = {(char *)"./rdma_write_benchmark",
 						   (char *)"-a",
 						   (char *)"-d",
