@@ -43,6 +43,13 @@
 #include "perftest_resources.h"
 #include "perftest_communication.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <string.h>
+#include <glog/logging.h>
+
 /******************************************************************************
  ******************************************************************************/
 int ib_write_bw_main(int argc, char *argv[])
@@ -135,6 +142,7 @@ int ib_write_bw_main(int argc, char *argv[])
 		return FAILURE;
 	}
 	sleep(1);
+
 	exchange_versions(&user_comm, &user_param);
 	check_version_compatibility(&user_param);
 	check_sys_data(&user_comm, &user_param);
@@ -598,6 +606,7 @@ public:
 void server_function(char *const argv[], int argc)
 {
 	printf("args numer: %d\n", argc);
+
 	do
 	{
 		//std::cout << "server is launched\n";
@@ -649,6 +658,8 @@ int main(int argc, char *argv[])
 						   (char *)"-d",
 						   (char *)"mlx5_0",
 						   (char *)"--run_infinitely",
+						   (char *)"-s",
+						   (char *)"1024",
 						   (char *)"-p",
 						   (char *)"1231"};
 	char *client_args[] = {(char *)"./rdma_write_benchmark",
@@ -659,6 +670,8 @@ int main(int argc, char *argv[])
 						   (char *)"--run_infinitely",
 						   (char *)"-p",
 						   (char *)"1231",
+						   (char *)"-s",
+						   (char *)"1024",
 						   (char *)"-F",
 						   (char *)"12.12.12.111"};
 
@@ -697,6 +710,8 @@ int main(int argc, char *argv[])
 		std::thread *client_thread;
 		server_thread = new std::thread([server_args]() {
 			server_function(server_args, sizeof(server_args) / sizeof(char *));
+			while (1)
+				sleep(1);
 		});
 		client_thread = new std::thread([ip_address, client_args]() {
 			client_function(ip_address, client_args, sizeof(client_args) / sizeof(char *));
