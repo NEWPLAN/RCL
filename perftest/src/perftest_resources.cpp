@@ -3579,7 +3579,7 @@ cleaning:
 	return return_value;
 }
 /******************************************************************************
- *
+ * NEWPLAN for infinitely run test
  ******************************************************************************/
 int run_iter_bw_infinitely(struct pingpong_context *ctx, struct perftest_parameters *user_param)
 {

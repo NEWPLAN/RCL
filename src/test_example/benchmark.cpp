@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
         if (r_session->send_request())
         {
             for (int index = 0; index < r_endpoint->max_to_send(); index++)
-                r_endpoint->write_remote(1024 * 2);
+                r_endpoint->write_remote(1024 * 64);
         }
         //LOG(INFO) << "Waiting in the main threads";
         //std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -56,10 +56,10 @@ link_directories(${SUB_MODULE_PATH})
 #add_subdirectory(./topology) # build data subsystem
 
 #设置编译目标
-add_executable(rdma_write_benchmark ${SRC_LIST}
+add_executable(ribwrite ${SRC_LIST}
                                     test-example/write_bw.cpp)
 #添加编译目标依赖
-target_link_libraries(rdma_write_benchmark 
+target_link_libraries(ribwrite 
                     glog
                     pthread
                     -lrdmacm

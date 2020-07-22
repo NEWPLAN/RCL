@@ -672,7 +672,7 @@ static int ethernet_client_connect(struct perftest_comm *comm)
 	client.sin_addr.s_addr = inet_addr(comm->rdma_params->servername);
 	if (sockfd >= 0)
 	{
-		int count = 100 * 60 * 2;
+		int count = 100 * 60 * 20;
 		while (connect(sockfd, (struct sockaddr *)&client, sizeof(client)) != 0)
 		{
 			usleep(10000);

@@ -596,6 +596,9 @@ public:
 
 #endif
 
+char *bytes_specify = (char *)"-s";
+char *total_bytes = (char *)"8192";
+
 #include <thread>
 #include <chrono>
 #include <atomic>
@@ -603,13 +606,50 @@ public:
 #include <vector>
 #include <iostream>
 
-void server_function(char *const argv[], int argc)
+void server_function(std::vector<std::string> ip_table, char *const argv[], int argc)
 {
 	printf("args numer: %d\n", argc);
 
+	for (auto &each : ip_table)
+	{
+		char ip_index[20] = {0};
+
+		sprintf(ip_index, "%s", each.c_str());
+		int ip_addr = atoi(ip_index + 9);
+		LOG(INFO) << "Remote IP addr: " << ip_addr;
+
+		char **tmp_client_base = new char *[argc + 2];
+		for (int index = 0; index < argc; index++)
+		{
+			tmp_client_base[index] = new char[strlen(argv[index]) + 1];
+			memcpy(tmp_client_base[index], argv[index], strlen(argv[index]));
+			tmp_client_base[index][strlen(argv[index])] = 0;
+			//printf("%s ", tmp_client_base[index]);
+		}
+		//printf("\n");
+		memset(tmp_client_base[argc - 1], 0, strlen(tmp_client_base[argc - 1]));
+		sprintf(tmp_client_base[argc - 1], "12%d", ip_addr);
+		{ //load msg_size
+			tmp_client_base[argc] = new char[strlen(bytes_specify) + 1];
+			memset(tmp_client_base[argc], 0, strlen(bytes_specify) + 1);
+			memcpy(tmp_client_base[argc], bytes_specify, strlen(bytes_specify));
+
+			tmp_client_base[argc + 1] = new char[strlen(total_bytes) + 1];
+			memset(tmp_client_base[argc + 1], 0, strlen(total_bytes) + 1);
+			memcpy(tmp_client_base[argc + 1], total_bytes, strlen(total_bytes));
+		}
+		int pid = fork();
+		if (pid == 0)
+		{
+			char **seconds_client_base = tmp_client_base;
+			ib_write_bw_main(argc + 2, seconds_client_base);
+		}
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+
 	do
 	{
-		//std::cout << "server is launched\n";
+
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	} while (1);
 }
@@ -618,9 +658,15 @@ void client_function(std::vector<std::string> ip_addr, char *const argv[], int a
 
 	std::vector<std::thread *> client_threads;
 
+	std::string local_ip = NetTool::get_ip("12.12.12.1", 24);
+	char ip_index[20] = {0};
+
+	sprintf(ip_index, "%s", local_ip.c_str());
+	int local_ip_index = atoi(ip_index + 9);
+
 	for (auto &peer : ip_addr)
 	{
-		char **tmp_client_base = new char *[argc];
+		char **tmp_client_base = new char *[argc + 2];
 		for (int index = 0; index < argc; index++)
 		{
 			tmp_client_base[index] = new char[strlen(argv[index]) + 1];
@@ -630,11 +676,22 @@ void client_function(std::vector<std::string> ip_addr, char *const argv[], int a
 		}
 		//printf("\n");
 		memcpy(tmp_client_base[argc - 1], peer.c_str(), strlen(tmp_client_base[argc - 1]));
+		sprintf(tmp_client_base[argc - 3], "12%d", local_ip_index, strlen(tmp_client_base[argc - 3]));
+
+		{ //load msg_size
+			tmp_client_base[argc] = new char[strlen(bytes_specify) + 1];
+			memset(tmp_client_base[argc], 0, strlen(bytes_specify) + 1);
+			memcpy(tmp_client_base[argc], bytes_specify, strlen(bytes_specify));
+
+			tmp_client_base[argc + 1] = new char[strlen(total_bytes) + 1];
+			memset(tmp_client_base[argc + 1], 0, strlen(total_bytes) + 1);
+			memcpy(tmp_client_base[argc + 1], total_bytes, strlen(total_bytes));
+		}
 		int pid = fork();
 		if (pid == 0)
 		{
 			char **seconds_client_base = tmp_client_base;
-			ib_write_bw_main(argc, seconds_client_base);
+			ib_write_bw_main(argc + 2, seconds_client_base);
 		}
 
 		// client_threads.push_back(new std::thread([argc, tmp_client_base] {
@@ -658,20 +715,18 @@ int main(int argc, char *argv[])
 						   (char *)"-d",
 						   (char *)"mlx5_0",
 						   (char *)"--run_infinitely",
-						   (char *)"-s",
-						   (char *)"1024",
+						   (char *)"--tclass=96",
 						   (char *)"-p",
-						   (char *)"1231"};
+						   (char *)"12101"};
 	char *client_args[] = {(char *)"./rdma_write_benchmark",
 						   (char *)"-a",
 						   (char *)"-d",
 						   (char *)"mlx5_0",
 						   (char *)"--report_gbits",
 						   (char *)"--run_infinitely",
+						   (char *)"--tclass=96",
 						   (char *)"-p",
-						   (char *)"1231",
-						   (char *)"-s",
-						   (char *)"1024",
+						   (char *)"12101",
 						   (char *)"-F",
 						   (char *)"12.12.12.111"};
 
@@ -708,8 +763,8 @@ int main(int argc, char *argv[])
 
 		std::thread *server_thread; //
 		std::thread *client_thread;
-		server_thread = new std::thread([server_args]() {
-			server_function(server_args, sizeof(server_args) / sizeof(char *));
+		server_thread = new std::thread([ip_address, server_args]() {
+			server_function(ip_address, server_args, sizeof(server_args) / sizeof(char *));
 			while (1)
 				sleep(1);
 		});

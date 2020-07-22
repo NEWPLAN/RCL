@@ -58,7 +58,11 @@
 			"xtr1common": "cpp",
 			"xtree": "cpp",
 			"xutility": "cpp",
-			"atomic": "cpp"
+			"atomic": "cpp",
+			"ctime": "cpp",
+			"iomanip": "cpp",
+			"xlocmon": "cpp",
+			"xloctime": "cpp"
 		}
 	}
 }
