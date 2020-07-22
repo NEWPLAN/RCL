@@ -61,19 +61,19 @@ void RDMAServer::server_event_loops()
         {
             LOG_INFO("Server: RDMA_CM_EVENT_CONNECT_REQUEST\n");
 
-            {
-                struct sockaddr *peer_addr = &event_copy.id->route.addr.dst_addr; //rdma_get_peer_addr(event_copy.id);
-                struct sockaddr *local_addr = rdma_get_local_addr(event_copy.id);
-                struct sockaddr_in *server_addr = (struct sockaddr_in *)local_addr;
-                struct sockaddr_in *client_addr = (struct sockaddr_in *)peer_addr;
+            // {
+            //     struct sockaddr *peer_addr = &event_copy.id->route.addr.dst_addr; //rdma_get_peer_addr(event_copy.id);
+            //     struct sockaddr *local_addr = rdma_get_local_addr(event_copy.id);
+            //     struct sockaddr_in *server_addr = (struct sockaddr_in *)local_addr;
+            //     struct sockaddr_in *client_addr = (struct sockaddr_in *)peer_addr;
 
-                printf("[%s:%d] [%s:%d] has established a connection with [%s:%d]\n",
-                       __FILE__, __LINE__,
-                       inet_ntoa(server_addr->sin_addr),
-                       ntohs(server_addr->sin_port),
-                       inet_ntoa(client_addr->sin_addr),
-                       ntohs(client_addr->sin_port));
-            }
+            //     printf("[%s:%d] [%s:%d] has established a connection with [%s:%d]\n",
+            //            __FILE__, __LINE__,
+            //            inet_ntoa(server_addr->sin_addr),
+            //            ntohs(server_addr->sin_port),
+            //            inet_ntoa(client_addr->sin_addr),
+            //            ntohs(client_addr->sin_port));
+            // }
 
             build_connection(event_copy.id);
             on_pre_conn(event_copy.id);
@@ -89,17 +89,17 @@ void RDMAServer::server_event_loops()
             on_connection(event_copy.id);
             this->rdma_adapter_.recv_rdma_cm_id.push_back(event_copy.id);
 
-            struct sockaddr *peer_addr = &event_copy.id->route.addr.dst_addr; //rdma_get_peer_addr(event_copy.id);
-            struct sockaddr *local_addr = rdma_get_local_addr(event_copy.id);
-            struct sockaddr_in *server_addr = (struct sockaddr_in *)local_addr;
-            struct sockaddr_in *client_addr = (struct sockaddr_in *)peer_addr;
+            // struct sockaddr *peer_addr = &event_copy.id->route.addr.dst_addr; //rdma_get_peer_addr(event_copy.id);
+            // struct sockaddr *local_addr = rdma_get_local_addr(event_copy.id);
+            // struct sockaddr_in *server_addr = (struct sockaddr_in *)local_addr;
+            // struct sockaddr_in *client_addr = (struct sockaddr_in *)peer_addr;
 
-            printf("[%s:%d] [%s:%d] has established a connection with [%s:%d]\n",
-                   __FILE__, __LINE__,
-                   inet_ntoa(server_addr->sin_addr),
-                   ntohs(server_addr->sin_port),
-                   inet_ntoa(client_addr->sin_addr),
-                   ntohs(client_addr->sin_port));
+            // printf("[%s:%d] [%s:%d] has established a connection with [%s:%d]\n",
+            //        __FILE__, __LINE__,
+            //        inet_ntoa(server_addr->sin_addr),
+            //        ntohs(server_addr->sin_port),
+            //        inet_ntoa(client_addr->sin_addr),
+            //        ntohs(client_addr->sin_port));
             break;
         }
         case RDMA_CM_EVENT_DISCONNECTED:
@@ -174,6 +174,85 @@ inline void parse_from_imm_data(uint32_t imm_data,
     *window_id = (imm_data_recv >> 16) & 0xFF;
     return;
 }
+#include "timer.h"
+void RDMAServer::sync_thread_func()
+{
+    LOG(INFO) << "Here is for notify poll-cq-thread";
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    int ready_num = 0;
+    char *bitmap = new char[32];
+    int max_QP = ctx_group.size();
+
+    uint64_t epoch = 1;
+
+    memset(bitmap, 0, 32);
+    int sig = 1;
+
+    for (auto &each_ctx : ctx_group)
+    {
+
+        each_ctx->q1->push(sig);
+    }
+    std::vector<std::chrono::high_resolution_clock::time_point> time_record;
+
+#define EPOCH_ROUND 3997
+
+    while (true)
+    {
+        for (int index = 0; index < max_QP; index++)
+        {
+            if (bitmap[index] == 0)
+            {
+                int value;
+                if (ctx_group[index]->q2->try_pop(&value) == true)
+                {
+                    ready_num++;
+                    bitmap[index] = 1;
+                    LOG_EVERY_N(INFO, 10000) << "Recv data size: " << value << " round: " << epoch;
+                    if (epoch == EPOCH_ROUND)
+                    {
+                        time_record.push_back(std::chrono::high_resolution_clock::now());
+                    }
+                }
+            }
+        }
+        if (ready_num == max_QP)
+        {
+            epoch++;
+            if (epoch == EPOCH_ROUND - 1)
+            {
+                time_record.clear();
+                time_record.push_back(std::chrono::high_resolution_clock::now());
+            }
+            for (auto &each_ctx : ctx_group)
+            {
+                size_t size = 0;
+                each_ctx->q1->push(sig);
+                each_ctx->q2->nonblocking_size(&size);
+                if (size != 0)
+                {
+                    LOG(INFO) << "MUST be empty";
+                }
+            }
+            ready_num = 0;
+            memset(bitmap, 0, 32);
+
+            if (epoch == EPOCH_ROUND)
+            {
+                char buf[512] = {0};
+                sprintf(buf, "%s", "[us] 0");
+                for (int index = 1; index <= max_QP; index++)
+                {
+                    uint64_t time_use = std::chrono::duration_cast<std::chrono::microseconds>(time_record[index] - time_record[0]).count();
+                    sprintf(buf + strlen(buf), ":%lu ", time_use);
+                }
+                epoch = 0;
+                time_record.clear();
+                LOG(INFO) << buf;
+            }
+        }
+    }
+}
 
 void *RDMAServer::poll_cq(void *_id)
 {
@@ -189,7 +268,71 @@ void *RDMAServer::poll_cq(void *_id)
         exit(-1);
     }
 
+    // ctx->ready_signal = COLLECTED_DATA;
+
+    // { //NEWPLAN is waiting here to synchronize the communication with peer
+    //     LOG(INFO) << "sub poll cq thread is waiting for main threads";
+    //     std::unique_lock<std::mutex> lck(mtx);
+    //     while (!ready)
+    //         cv.wait(lck); // 当前线程被阻塞, 当全局标志位变为 true 之后,
+    //     LOG(INFO) << "sub poll cq thread has been waked up...";
+    // }
+
     void *ev_ctx = NULL;
+
+    {
+        TEST_NZ(ibv_get_cq_event(ctx->comp_channel,
+                                 &cq, &ev_ctx));
+        ibv_ack_cq_events(cq, 1);
+        TEST_NZ(ibv_req_notify_cq(cq, 0));
+
+        while (true)
+        {
+            int nc = ibv_poll_cq(cq, MAX_DATA_IN_FLIGHT * 2, wcs);
+            if (nc < 0)
+            {
+                LOG(FATAL) << "Error of poll cq: with entries: " << nc;
+            }
+            if (nc == 0)
+                continue;
+
+            for (int index = 0; index < nc; index++)
+            {
+                if (wcs[index].status == IBV_WC_SUCCESS)
+                {
+                    if (wcs[index].opcode == IBV_WC_SEND)
+                    {
+                    }
+                    else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
+                    {
+                        //add_performance(wcs[index].imm_data);
+                        LOG_EVERY_N(INFO, 10000) << "Receive msg: " << wcs[index].imm_data;
+                        if (wcs[index].imm_data == 23)
+                        {
+                            ctx->buffer[23] = 0;
+                            printf("Connection info: %s\n", ctx->buffer + 1);
+                        }
+                        else
+                        {
+                            ctx->q2->push(wcs[index].imm_data);
+                        }
+
+                        post_receive(id);
+                        ctx->q1->pop();
+                        send_message(id, 0, 888);
+                    }
+                    else
+                    {
+                        LOG(INFO) << "Unknown message";
+                    }
+                }
+                else
+                {
+                    rc_die("poll_cq: status is not IBV_WC_SUCCESS");
+                }
+            }
+        }
+    }
 
     while (true)
     {
@@ -215,9 +358,6 @@ void *RDMAServer::poll_cq(void *_id)
                 {
                     if (wcs[index].opcode == IBV_WC_SEND)
                     {
-                        // process when complete send
-                        // do nothing here, continue;
-                        //LOG_INFO("fin when send\n");
                     }
                     else if (wcs[index].opcode ==
                              IBV_WC_RECV_RDMA_WITH_IMM)
@@ -248,7 +388,8 @@ void *RDMAServer::poll_cq(void *_id)
                                      buffer_id, window_id, data_size);
                             std::this_thread::sleep_for(std::chrono::milliseconds(100));
 #endif
-                            uint32_t address_offset = buffer_id * BUFFER_SIZE + window_id * BUFFER_SIZE * MAX_DATA_IN_FLIGHT;
+                            uint32_t address_offset = buffer_id * BUFFER_SIZE +
+                                                      window_id * BUFFER_SIZE * MAX_DATA_IN_FLIGHT;
                             process_message(ctx, buffer_id,
                                             ctx->buffer + address_offset,
                                             data_size);
@@ -258,14 +399,7 @@ void *RDMAServer::poll_cq(void *_id)
 
                         if (ctx->msg[echo_msg_id].data.batch_index[MSG_NUM_OFFEST] >= BATCH_MSG)
                         {
-                            // LOG_INFO("send msg_back with id: %d nums: %d\n", echo_msg_id,
-                            //          ctx->msg[echo_msg_id].data.batch_index[MSG_NUM_OFFEST]);
 
-                            // for (uint32_t i = 0; i < ctx->msg[echo_msg_id].data.batch_index[MSG_NUM_OFFEST]; i++)
-                            // {
-                            //     printf(" %d", ctx->msg[echo_msg_id].data.batch_index[i]);
-                            // }
-                            // printf("\n");
                             ctx->msg[echo_msg_id].id = MSG_READY;
                             //msg buff is full, send msg back to peer right now.
                             send_message(id, echo_msg_id);
@@ -284,14 +418,7 @@ void *RDMAServer::poll_cq(void *_id)
         } while (nc > 0);
 #ifdef DEBUG_BATCH_MSG
         if (echo_msg_id >= 0)
-        { // after poll cq, send msg back
-            // LOG_INFO("send msg_back with id: %d nums: %d\n", echo_msg_id,
-            //          ctx->msg[echo_msg_id].data.batch_index[MSG_NUM_OFFEST]);
-            // for (uint32_t i = 0; i < ctx->msg[echo_msg_id].data.batch_index[MSG_NUM_OFFEST]; i++)
-            // {
-            //     printf(" %d", ctx->msg[echo_msg_id].data.batch_index[i]);
-            // }
-            // printf("\n");
+        {
             ctx->msg[echo_msg_id].id = MSG_READY;
             send_message(id, echo_msg_id);
             echo_msg_id = -1;
@@ -324,6 +451,19 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
         this->poll_cq((void *)id);
     });
     recv_threads.push_back(recv_thread);
+
+    ctx->q1 = new BlockingQueue<int>();
+    ctx->q2 = new BlockingQueue<int>();
+
+    ctx_group.push_back(ctx);
+
+    if (ctx_group.size() == 3)
+    {
+        recv_threads.push_back(
+            new std::thread([this] {
+                this->sync_thread_func();
+            }));
+    }
 }
 
 void RDMAServer::on_pre_conn(struct rdma_cm_id *id)
@@ -363,8 +503,8 @@ void RDMAServer::on_pre_conn(struct rdma_cm_id *id)
     {
         post_receive(id);
     }
-    LOG_INFO("Server register buffer info:\nblock size: %d;\nblock number: %d;\nwindow num: %u;\nbase address: %p\n",
-             BUFFER_SIZE, MAX_DATA_IN_FLIGHT, WINDOWS_NUM, ctx->buffer);
+    // LOG_INFO("Server register buffer info:\nblock size: %d;\nblock number: %d;\nwindow num: %u;\nbase address: %p\n",
+    //          BUFFER_SIZE, MAX_DATA_IN_FLIGHT, WINDOWS_NUM, ctx->buffer);
 }
 
 void RDMAServer::on_disconnect(struct rdma_cm_id *id)
@@ -397,7 +537,8 @@ void RDMAServer::post_receive(struct rdma_cm_id *id)
 }
 
 void RDMAServer::send_message(struct rdma_cm_id *id,
-                              uint32_t token_id)
+                              uint32_t token_id,
+                              uint32_t imm_data)
 {
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
     struct ibv_send_wr wr, *bad_wr = NULL;
@@ -415,6 +556,13 @@ void RDMAServer::send_message(struct rdma_cm_id *id,
     sge.addr = (uintptr_t)&ctx->msg[token_id];
     sge.length = sizeof(struct message);
     sge.lkey = ctx->msg_mr->lkey;
+    //if (control_msg)
+    {
+        wr.opcode = IBV_WR_SEND_WITH_IMM;
+        if (imm_data == 888)
+            sge.length = 0;
+        wr.imm_data = imm_data;
+    }
 
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 
