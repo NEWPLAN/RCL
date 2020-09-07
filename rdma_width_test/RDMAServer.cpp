@@ -190,7 +190,6 @@ void RDMAServer::sync_thread_func()
 
     for (auto &each_ctx : ctx_group)
     {
-
         each_ctx->q1->push(sig);
     }
     std::vector<std::chrono::high_resolution_clock::time_point> time_record;
@@ -218,7 +217,6 @@ void RDMAServer::sync_thread_func()
         }
         if (ready_num == max_QP)
         {
-            epoch++;
             if (epoch == EPOCH_ROUND - 1)
             {
                 time_record.clear();
@@ -227,12 +225,13 @@ void RDMAServer::sync_thread_func()
             for (auto &each_ctx : ctx_group)
             {
                 size_t size = 0;
-                each_ctx->q1->push(sig);
-                each_ctx->q2->nonblocking_size(&size);
-                if (size != 0)
+
+                if ((each_ctx->q2->nonblocking_size(&size) == true) && (size != 0))
                 {
-                    LOG(INFO) << "MUST be empty";
+                    LOG(WARNING) << "MUST be empty";
                 }
+
+                each_ctx->q1->push(sig); //signal to notify it should send now
             }
             ready_num = 0;
             memset(bitmap, 0, 32);
@@ -250,6 +249,7 @@ void RDMAServer::sync_thread_func()
                 time_record.clear();
                 LOG(INFO) << buf;
             }
+            epoch++;
         }
     }
 }
@@ -457,7 +457,7 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
 
     ctx_group.push_back(ctx);
 
-    if (ctx_group.size() == 3)
+    if (ctx_group.size() == 13)
     {
         recv_threads.push_back(
             new std::thread([this] {

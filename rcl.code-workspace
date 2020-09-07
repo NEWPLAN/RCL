@@ -64,7 +64,11 @@
 			"xlocmon": "cpp",
 			"xloctime": "cpp",
 			"deque": "cpp",
-			"queue": "cpp"
+			"queue": "cpp",
+			"iterator": "cpp",
+			"sstream": "cpp",
+			"resumable": "cpp",
+			"future": "cpp"
 		}
 	}
 }

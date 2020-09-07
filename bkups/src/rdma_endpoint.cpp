@@ -11,29 +11,29 @@ PROG	: RDMA_ENDPOINT_CPP
 #include "rdma_buffer.h"
 #include "rdma_channel.h"
 
-RDMA_Endpoint::RDMA_Endpoint(ibv_pd* pd, ibv_cq* cq, ibv_context* context, int ib_port, int cq_size, RDMA_MemoryPool* mempool)
+RDMA_Endpoint::RDMA_Endpoint(ibv_pd *pd, ibv_cq *cq, ibv_context *context, int ib_port, int cq_size, RDMA_MemoryPool *mempool)
     : pd_(pd), ib_port_(ib_port), connected_(false), mempool_(mempool)
 {
     // create the Queue Pair
     struct ibv_qp_init_attr qp_init_attr;
     memset(&qp_init_attr, 0, sizeof(qp_init_attr));
 
-    qp_init_attr.qp_type    = IBV_QPT_RC;
+    qp_init_attr.qp_type = IBV_QPT_RC;
     // qp_init_attr.sq_sig_all = 1;
-    qp_init_attr.send_cq    = cq;
-    qp_init_attr.recv_cq    = cq;
-    qp_init_attr.cap.max_send_wr  = cq_size;
-    qp_init_attr.cap.max_recv_wr  = cq_size;
+    qp_init_attr.send_cq = cq;
+    qp_init_attr.recv_cq = cq;
+    qp_init_attr.cap.max_send_wr = cq_size;
+    qp_init_attr.cap.max_recv_wr = cq_size;
     qp_init_attr.cap.max_send_sge = 1;
     qp_init_attr.cap.max_recv_sge = 1;
-    
+
     qp_ = ibv_create_qp(pd_, &qp_init_attr);
     if (!qp_)
     {
         log_error("failed to create QP");
         return;
     }
-    
+
     log_info(make_string("QP was created, QP number=0x%x", qp_->qp_num));
 
     modify_qp_to_init();
@@ -98,7 +98,8 @@ void RDMA_Endpoint::connect(cm_con_data_t remote_con_data)
     if (connected_)
     {
         log_warning("Channel Already Connected.");
-    } else
+    }
+    else
     {
         channel_->remote_mr_.remote_addr = rdma_util::ntohll(remote_con_data.maddr);
         channel_->remote_mr_.rkey = rdma_util::ntohl(remote_con_data.mrkey);
@@ -126,7 +127,8 @@ void RDMA_Endpoint::close()
     if (connected_)
     {
         RDMA_Message::send_message_to_channel(channel_, RDMA_MESSAGE_CLOSE);
-    } else
+    }
+    else
     {
         log_warning("Endpoint Already Closed");
     }
@@ -134,22 +136,22 @@ void RDMA_Endpoint::close()
 
 // ----------------------------------------------
 
-RDMA_Buffer* RDMA_Endpoint::bufferalloc(int size)
+RDMA_Buffer *RDMA_Endpoint::bufferalloc(int size)
 {
-    RDMA_Buffer* new_buffer = new RDMA_Buffer(channel_, pd_, size);
+    RDMA_Buffer *new_buffer = new RDMA_Buffer(channel_, pd_, size);
     return new_buffer;
 }
 
 // ----------------------------------------------
 
-void RDMA_Endpoint::send_data(RDMA_Buffer* buffer)
+void RDMA_Endpoint::send_data(RDMA_Buffer *buffer)
 {
     channel_->request_read(buffer);
 }
 
-void RDMA_Endpoint::send_rawdata(void* addr, int size)
+void RDMA_Endpoint::send_rawdata(void *addr, int size)
 {
-    RDMA_Buffer* new_buffer = new RDMA_Buffer(channel_, pd_, size, addr);
+    RDMA_Buffer *new_buffer = new RDMA_Buffer(channel_, pd_, size, addr);
     //channel_->request_read(new_buffer);
     send_data(new_buffer);
 }
@@ -188,7 +190,8 @@ int RDMA_Endpoint::modify_qp_to_init()
     flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
 
     rc = ibv_modify_qp(qp_, &attr, flags);
-    if (rc) {
+    if (rc)
+    {
         fprintf(stderr, "failed to modify QP state to INIT\n");
         return rc;
     }
@@ -217,14 +220,15 @@ int RDMA_Endpoint::modify_qp_to_rtr()
     attr.ah_attr.src_path_bits = 0;
     attr.ah_attr.port_num = ib_port_;
 
-    flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | 
-        IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
+    flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN |
+            IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
 
     rc = ibv_modify_qp(qp_, &attr, flags);
     // TODO: This Part is now only designed for IB,
     //       When Using RoCE, GRH must be configured.
     //       See https://www.rdmamojo.com/2013/01/12/ibv_modify_qp/
-    if (rc) {
+    if (rc)
+    {
         fprintf(stderr, "failed to modify QP state to RTR\n");
         return rc;
     }
@@ -248,11 +252,12 @@ int RDMA_Endpoint::modify_qp_to_rts()
     attr.sq_psn = self_.psn;
     attr.max_rd_atomic = 1;
 
-    flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | 
-        IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
+    flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT |
+            IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
 
     rc = ibv_modify_qp(qp_, &attr, flags);
-    if (rc) {
+    if (rc)
+    {
         fprintf(stderr, "failed to modify QP state to RTS\n");
         return rc;
     }

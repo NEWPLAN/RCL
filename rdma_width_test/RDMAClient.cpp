@@ -116,9 +116,10 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
             build_connection(event_copy.id);
             uint8_t tos = 96; //https://blog.csdn.net/sunshuying1010/article/details/103661289
             if (rdma_set_option(event_copy.id, RDMA_OPTION_ID,
-                                RDMA_OPTION_ID_TOS, &tos, sizeof(uint8_t)))
+                                RDMA_OPTION_ID_TOS,
+                                &tos, sizeof(uint8_t)))
             {
-                std::cout << "=================\nFailed to set ToS(Type of Service) option for RDMA CM connection." << std::endl;
+                std::cout << "Failed to set ToS(Type of Service) option for RDMA CM connection." << std::endl;
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 exit(0);
             }
@@ -271,7 +272,7 @@ void *RDMAClient::poll_cq(void *_id)
                         {
                             LOG_EVERY_N(INFO, 10000) << "Write large buffer to peer";
                             //1MB
-                            write_large_block(1024 * 10000);
+                            write_large_block(1024 * 1000);
                         }
                         post_receive(1);
                     }
