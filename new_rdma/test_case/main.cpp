@@ -200,20 +200,25 @@ int main(int argc, char *argv[])
     //     r_client->exit_on_error();
     // }
     // return 0;
-    {
-        newplan::RDMAEndpoint *r_server = new newplan::RDMAServer();
-        newplan::RDMAEndpoint *r_client = new newplan::RDMAClient();
-        LOG(INFO) << "Server: " << newplan::RDMA_TYPE_STRING[r_server->get_type()];
-        LOG(INFO) << "Client: " << newplan::RDMA_TYPE_STRING[r_client->get_type()];
-    }
 
     if (argc < 2)
     {
-        server_main_v2(argc, argv);
+        newplan::RDMAEndpoint *r_server = new newplan::RDMAServer(1251);
+        LOG(INFO) << "Server: " << newplan::RDMA_TYPE_STRING[r_server->get_type()];
+        {
+            // server_main_v2(argc, argv);
+        }
+        r_server->run_async();
     }
     else
     {
-        client_main_v2(argc, argv);
+        newplan::RDMAEndpoint *r_client = new newplan::RDMAClient(1251, argv[1]);
+        LOG(INFO) << "Client: " << newplan::RDMA_TYPE_STRING[r_client->get_type()];
+        {
+            //client_main_v2(argc, argv);
+        }
+
+        r_client->run();
     }
 
     // PreConnector *pre_connector = new PreConnector(121, "0.0.0.0", 2345);

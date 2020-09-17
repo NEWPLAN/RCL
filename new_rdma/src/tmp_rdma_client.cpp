@@ -13,6 +13,216 @@
 
 #include <glog/logging.h>
 
+#include "rdma_endpoint.h"
+namespace newplan
+{
+
+    void RDMAClient::run_async()
+    {
+        LOG(FATAL) << "Client will never run async";
+    }
+    void RDMAClient::run()
+    {
+        LOG(INFO) << "Client runing";
+        before_connect();
+        do_connect();
+        after_connect();
+    }
+
+    void RDMAClient::before_connect()
+    {
+        LOG(INFO) << "Before connect";
+    }
+
+    PreConnector *RDMAClient::pre_connecting()
+    {
+        struct sockaddr_in c_to_server;
+        c_to_server.sin_family = AF_INET;
+        c_to_server.sin_port = htons(this->port_);
+        c_to_server.sin_addr.s_addr = inet_addr(this->server_ip_.c_str());
+
+        if (is_connected_)
+        {
+            LOG(WARNING) << "Already connected to "
+                         << server_ip_ << ":" << port_;
+            return nullptr;
+        }
+        int count_try = 10 * 300; //default 300s
+
+        int sock_fd = get_socket();
+
+        if (sock_fd == 0)
+        {
+            LOG(FATAL) << "Error: socket can not be empty";
+        }
+
+        do
+        {
+            if (::connect(sock_fd, (struct sockaddr *)&c_to_server,
+                          sizeof(c_to_server)) == 0)
+                break; // break when successing
+
+            LOG_EVERY_N(INFO, 10) << "[" << count_try / 10
+                                  << "] Failed to connect: "
+                                  << this->server_ip_ << ":" << this->port_;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        } while (count_try-- > 0);
+
+        is_connected_ = true;
+
+        PreConnector *pre_connector = new PreConnector(sock_fd,
+                                                       this->server_ip_,
+                                                       this->port_);
+        return pre_connector;
+    }
+    void RDMAClient::do_connect()
+    {
+        LOG(INFO) << "do connect";
+        PreConnector *pre_connector = pre_connecting();
+        NPRDMASession *new_session = NPRDMASession::new_rdma_session(pre_connector);
+        this->store_session(new_session);
+
+        new_session->do_connect(get_type() == ENDPOINT_SERVER);
+        start_service(new_session);
+    }
+    void RDMAClient::after_connect()
+    {
+        LOG(INFO) << "after connect";
+    }
+
+    void RDMAClient::start_service(NPRDMASession *sess)
+    {
+        LOG(INFO) << "Start service";
+        NPRDMAAdapter *ctx = sess->get_channel()->get_context();
+
+        unsigned int iters = DEFAULT_ITERS;
+        bool use_event = false;
+        bool validate_buf = false;
+        struct timeval start, end;
+        struct ibv_wc wc;
+
+        if (validate_buf)
+            LOG(INFO) << "validate the buf";
+
+        {
+            if (!ctx->wait_for_wc(&wc) ||
+                !ctx->parse_recv_wc(&wc))
+            {
+                LOG(FATAL) << "Fail to get the completed recv request";
+            }
+
+            // Get remote data plane memory information
+            struct write_lat_mem *rem_mem = (struct write_lat_mem *)ctx->ctx->ctrl_buf;
+            ctx->print_mem(rem_mem);
+
+            // Generate the first write request
+            if (!ctx->post_data_write(rem_mem))
+            {
+                fprintf(stderr, "Could not post write\n");
+                exit(-1);
+            }
+
+            if (gettimeofday(&start, NULL))
+            {
+                fprintf(stderr, "Cannot get current time\n");
+                exit(-1);
+            }
+
+            // Wait for the completions of all the write requests
+            int cnt_write_compl = 0;
+            while (cnt_write_compl < iters)
+            {
+                // Wait for completion events.
+                // If we use busy polling, this step is skipped.
+                if (use_event)
+                {
+                    struct ibv_cq *ev_cq;
+                    void *ev_ctx;
+
+                    if (ibv_get_cq_event(ctx->ctx->channel, &ev_cq, &ev_ctx))
+                    {
+                        fprintf(stderr, "Fail to get cq_event\n");
+                        exit(-1);
+                    }
+
+                    if (ev_cq != ctx->ctx->cq)
+                    {
+                        fprintf(stderr, "CQ event for unknown CQ %p\n", ev_cq);
+                        exit(-1);
+                    }
+
+                    ibv_ack_cq_events(ctx->ctx->cq, 1);
+
+                    if (ibv_req_notify_cq(ctx->ctx->cq, 0))
+                    {
+                        fprintf(stderr, "Cannot request CQ notification\n");
+                        exit(-1);
+                    }
+                }
+
+                // Empty the completion queue
+                while (true)
+                {
+                    int ne = ibv_poll_cq(ctx->ctx->cq, 1, &wc);
+                    if (ne < 0)
+                    {
+                        fprintf(stderr, "Fail to poll CQ (%d)\n", ne);
+                        exit(-1);
+                    }
+                    else if (ne == 0)
+                    {
+                        break;
+                    }
+
+                    if (!ctx->parse_write_wc(&wc))
+                    {
+                        exit(-1);
+                    }
+
+                    // Trigger the next write request
+                    if (++cnt_write_compl < iters && !ctx->post_data_write(rem_mem))
+                    {
+                        fprintf(stderr, "Could not post write\n");
+                        exit(-1);
+                    }
+                }
+            }
+
+            if (gettimeofday(&end, NULL))
+            {
+                fprintf(stderr, "Cannot get current time\n");
+                exit(-1);
+            }
+
+            printf("%d write requests have completed\n", iters);
+
+            float usec = (end.tv_sec - start.tv_sec) * 1000000 +
+                         (end.tv_usec - start.tv_usec);
+
+            printf("%d iters in %.2f usec = %.2f usec/iter\n",
+                   iters, usec, usec / iters);
+
+            // Generate a RDMA write with immediate request to notify the server of completion of writes
+            if (!ctx->post_data_write_with_imm(rem_mem, TEST_COMPLETION))
+            {
+                fprintf(stderr, "Could not post write with immediate\n");
+                exit(-1);
+            }
+
+            // Wait for the completion of the write with immediate request
+            if (!ctx->wait_for_wc(&wc) || !ctx->parse_write_wc(&wc))
+            {
+                fprintf(stderr, "Fail to get the completed write with immediate request\n");
+                exit(-1);
+            }
+
+            printf("Destroy IB resources\n");
+            ctx->destroy_ctx();
+        }
+    }
+
+}; // namespace newplan
+
 static void print_usage(char *app);
 
 bool client_connect_with_server_new(NPRDMAAdapter *ctx,

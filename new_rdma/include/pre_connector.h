@@ -99,8 +99,10 @@ public:
 
         while (count > 0)
         {
-            n = read(socket_fd, cur_buf, count);
-
+            //n = read(socket_fd, cur_buf, count);
+            LOG(INFO) << "Before recv";
+            n = recv(socket_fd, cur_buf, count, 0);
+            LOG(INFO) << "After recv: " << n;
             if (n <= 0)
             {
                 fprintf(stderr, "read error\n");
@@ -111,6 +113,18 @@ public:
                 bytes_read += n;
                 count -= n;
                 cur_buf += n;
+            }
+        }
+
+        if (n < 0)
+        {
+            if (errno == ECONNRESET)
+            {
+                LOG(INFO) << "Connection was reset by peer";
+                do
+                {
+                    std::this_thread::sleep_for(std::chrono::seconds(10));
+                } while (true);
             }
         }
 
@@ -137,10 +151,16 @@ public:
 
         while (count > 0)
         {
-            n = write(socket_fd, cur_buf, count);
+            LOG(INFO) << "Before write";
+
+            //n = write(socket_fd, cur_buf, count);
+            n = send(socket_fd, cur_buf, count, MSG_CONFIRM);
+
+            LOG(INFO) << "After write: " << n;
 
             if (n <= 0)
             {
+                LOG(INFO) << "failed to send data";
                 fprintf(stderr, "write error\n");
                 break;
             }
@@ -149,6 +169,18 @@ public:
                 bytes_wrt += n;
                 count -= n;
                 cur_buf += n;
+            }
+        }
+
+        if (n < 0)
+        {
+            if (errno == ECONNRESET)
+            {
+                LOG(INFO) << "Connection was reset by peer";
+                do
+                {
+                    std::this_thread::sleep_for(std::chrono::seconds(10));
+                } while (true);
             }
         }
 

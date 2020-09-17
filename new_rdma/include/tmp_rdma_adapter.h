@@ -5,13 +5,22 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <sys/time.h>
+#include <getopt.h>
+#include <string.h>
+
 #define DEFAULT_IB_PORT 1
 
-#define DEFAULT_MSG_SIZE 4096
+#define DEFAULT_MSG_SIZE 6400000
 
 #define DEFAULT_CTRL_BUF_SIZE 16
 
-#define DEFAULT_ITERS 100
+#define DEFAULT_ITERS 100000
 
 #define DEFAULT_PORT 12345
 
@@ -176,12 +185,38 @@ public:
     // Return true on success.
     bool wait_for_wc(struct ibv_wc *wc);
 
+    static void wire_gid_to_gid(const char *wgid, union ibv_gid *gid)
+    {
+        char tmp[9];
+        uint32_t v32;
+        int i;
+
+        for (tmp[8] = 0, i = 0; i < 4; ++i)
+        {
+            memcpy(tmp, wgid + i * 8, 8);
+            sscanf(tmp, "%x", &v32);
+            *(uint32_t *)(&gid->raw[i * 4]) = ntohl(v32);
+        }
+    }
+    static void gid_to_wire_gid(const union ibv_gid *gid, char wgid[])
+    {
+        int i;
+
+        for (i = 0; i < 4; ++i)
+            sprintf(&wgid[i * 8], "%08x", htonl(*(uint32_t *)(gid->raw + i * 4)));
+    }
+
+private:
+    int modify_qp_to_init(struct ibv_qp_attr &);
+    int modify_qp_to_rtr();
+    int modify_qp_to_rts();
+
 private:
     std::string endpoint_name;
 
 public:
     write_lat_context *ctx = nullptr;
-    char *default_device = "mlx5_0";
+    char *default_device = (char *)"mlx5_0";
 };
 
 #endif

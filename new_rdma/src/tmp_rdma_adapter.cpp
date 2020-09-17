@@ -123,6 +123,8 @@ bool NPRDMAAdapter::init_ctx()
         exit(-1);
     }
 
+    LOG(INFO) << "Open IB device at: " << ibv_get_device_name(dev_list[ib_dev_id]);
+
     // Create a completion channel
     if (ctx->use_event)
     {
@@ -135,6 +137,7 @@ bool NPRDMAAdapter::init_ctx()
     }
     else
     {
+        LOG(INFO) << "Do not use the event channel";
         ctx->channel = NULL;
     }
 
@@ -145,6 +148,8 @@ bool NPRDMAAdapter::init_ctx()
         fprintf(stderr, "Fail to allocate protection domain\n");
         exit(-1);
     }
+
+    LOG(INFO) << "Allocating protection domain";
 
     // Allocate memory for control plane messages
     ctx->ctrl_buf = (char *)memalign(sysconf(_SC_PAGESIZE), ctx->ctrl_buf_size);
@@ -162,6 +167,8 @@ bool NPRDMAAdapter::init_ctx()
         exit(-1);
     }
 
+    LOG(INFO) << "Registering control plane message";
+
     // Register memory region for control plane messages
     int access_flags = IBV_ACCESS_LOCAL_WRITE;
     ctx->ctrl_mr = ibv_reg_mr(ctx->pd, ctx->ctrl_buf, ctx->ctrl_buf_size, access_flags);
@@ -172,13 +179,17 @@ bool NPRDMAAdapter::init_ctx()
     }
 
     // Register memory region for data plane messages
-    access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE;
-    ctx->data_mr = ibv_reg_mr(ctx->pd, ctx->data_buf, ctx->data_buf_size, access_flags);
+    access_flags = IBV_ACCESS_REMOTE_WRITE |
+                   IBV_ACCESS_LOCAL_WRITE;
+    ctx->data_mr = ibv_reg_mr(ctx->pd, ctx->data_buf,
+                              ctx->data_buf_size, access_flags);
     if (!(ctx->data_mr))
     {
         fprintf(stderr, "Fail to register memory region for data plane messages\n");
         exit(-1);
     }
+
+    LOG(INFO) << "Register data plane message";
 
     // Query device attributes
     if (ibv_query_device(ctx->ctx, &(ctx->dev_attr)) != 0)
@@ -194,6 +205,8 @@ bool NPRDMAAdapter::init_ctx()
         exit(-1);
     }
 
+    LOG(INFO) << "Querying IBV ports";
+
     // Create a completion queue
     ctx->cq = ibv_create_cq(ctx->ctx,
                             4096, //ctx->dev_attr.max_cqe,
@@ -203,6 +216,8 @@ bool NPRDMAAdapter::init_ctx()
         fprintf(stderr, "Fail to create the completion queue\n");
         exit(-1);
     }
+
+    LOG(INFO) << "Creating completion queue";
 
     if (ctx->use_event)
     {
@@ -250,22 +265,7 @@ bool NPRDMAAdapter::init_ctx()
         }
     }
 
-    attr.qp_state = IBV_QPS_INIT;
-    attr.pkey_index = 0;
-    attr.port_num = ctx->dev_port;
-    // Allow incoming RDMA writes on this QP
-    attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE;
-
-    if (ibv_modify_qp(ctx->qp, &attr,
-                      IBV_QP_STATE |
-                          IBV_QP_PKEY_INDEX |
-                          IBV_QP_PORT |
-                          IBV_QP_ACCESS_FLAGS))
-    {
-
-        fprintf(stderr, "Fail to modify QP to INIT\n");
-        exit(-1);
-    }
+    modify_qp_to_init(attr);
 
     ibv_free_device_list(dev_list);
     return true;
@@ -688,6 +688,7 @@ bool NPRDMAAdapter::connect_qp(struct write_lat_dest *my_dest,
         attr.ah_attr.grh.hop_limit = 1;
         attr.ah_attr.grh.dgid = rem_dest->gid;
         attr.ah_attr.grh.sgid_index = ctx->gid_index;
+        attr.ah_attr.grh.traffic_class = 96;
     }
 
     if (ibv_modify_qp(ctx->qp, &attr,
@@ -819,4 +820,33 @@ bool NPRDMAAdapter::wait_for_wc(struct ibv_wc *wc)
 
     // We should never reach here
     return false;
+}
+
+int NPRDMAAdapter::modify_qp_to_init(struct ibv_qp_attr &attr)
+{
+    attr.qp_state = IBV_QPS_INIT;
+    attr.pkey_index = 0;
+    attr.port_num = ctx->dev_port;
+    // Allow incoming RDMA writes on this QP
+    attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE;
+
+    if (ibv_modify_qp(ctx->qp, &attr,
+                      IBV_QP_STATE |
+                          IBV_QP_PKEY_INDEX |
+                          IBV_QP_PORT |
+                          IBV_QP_ACCESS_FLAGS))
+    {
+
+        fprintf(stderr, "Fail to modify QP to INIT\n");
+        exit(-1);
+    }
+    return 0;
+}
+int NPRDMAAdapter::modify_qp_to_rtr()
+{
+    return 0;
+}
+int NPRDMAAdapter::modify_qp_to_rts()
+{
+    return 0;
 }
