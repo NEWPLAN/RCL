@@ -1,4 +1,6 @@
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -210,7 +212,8 @@ namespace newplan
             }
 
             // Wait for the completion of the write with immediate request
-            if (!ctx->wait_for_wc(&wc) || !ctx->parse_write_wc(&wc))
+            if (!ctx->wait_for_wc(&wc) ||
+                !ctx->parse_write_wc(&wc))
             {
                 fprintf(stderr, "Fail to get the completed write with immediate request\n");
                 exit(-1);

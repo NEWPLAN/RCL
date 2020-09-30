@@ -1,4 +1,6 @@
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -78,7 +80,7 @@ namespace newplan
             this->store_session(new_session);
 
             { // move to the tread queue;
-                auto connection_thread = new std::thread([=, this]() {
+                auto connection_thread = new std::thread([=]() {
                     new_session->do_connect(get_type() == ENDPOINT_SERVER);
                     start_service(new_session);
                 });

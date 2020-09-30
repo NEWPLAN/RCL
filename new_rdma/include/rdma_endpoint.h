@@ -43,7 +43,7 @@ namespace newplan
         }
         NPRDMASession *get_session(int index)
         {
-            if (index < 0 || index >= rdma_session.size())
+            if (index < 0 || index >= (int)rdma_session.size())
             {
                 LOG(ERROR) << "Invalid index: " << index
                            << ", must less than: "
