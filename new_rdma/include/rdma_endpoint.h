@@ -1,17 +1,18 @@
 #ifndef __NEWPLAN_RDMA_ENDPOINT_H__
 #define __NEWPLAN_RDMA_ENDPOINT_H__
 
-#include "tmp_rdma_session.h"
+#include "rdma_session.h"
 #include <vector>
 
 namespace newplan
 {
-    static char *RDMA_TYPE_STRING[] =
-        {
-            (char *)"Unknown Type",
-            (char *)"Server",
-            (char *)"Client",
-            (char *)"Undefined"};
+    // static char *RDMA_TYPE_STRING[] =
+    //     {
+    //         (char *)"Unknown Type",
+    //         (char *)"Server",
+    //         (char *)"Client",
+    //         (char *)"Undefined"};
+
     enum EndType
     {
         ENDPOINT_UNKNOWN,
@@ -34,14 +35,14 @@ namespace newplan
         virtual void do_connect() = 0;
         virtual void after_connect() = 0;
 
-        virtual void start_service(NPRDMASession *sess) = 0;
+        virtual void start_service(RDMASession *sess) = 0;
 
     public:
-        void store_session(NPRDMASession *new_sees)
+        void store_session(RDMASession *new_sees)
         {
             rdma_session.push_back(new_sees);
         }
-        NPRDMASession *get_session(int index)
+        RDMASession *get_session(int index)
         {
             if (index < 0 || index >= (int)rdma_session.size())
             {
@@ -53,6 +54,23 @@ namespace newplan
             return rdma_session[index];
         }
 
+    public:
+        static char *get_rdma_type_str(enum EndType type)
+        {
+            static char *RDMA_TYPE_STRING[] =
+                {
+                    (char *)"Unknown Type",
+                    (char *)"Server",
+                    (char *)"Client",
+                    (char *)"Undefined"};
+
+            if (type < 0 || type >= sizeof(RDMA_TYPE_STRING) / sizeof(char *))
+            {
+                LOG(FATAL) << "Error of get RDMA type string: ";
+            }
+            return RDMA_TYPE_STRING[type];
+        }
+
     protected:
         short get_socket() const { return socket_fd; }
 
@@ -62,7 +80,9 @@ namespace newplan
     private:
         EndType type_ = ENDPOINT_UNKNOWN;
         short socket_fd = 0;
-        std::vector<NPRDMASession *> rdma_session;
+        std::vector<RDMASession *> rdma_session;
+
+    public:
     };
 
     class RDMAServer : public RDMAEndpoint
@@ -84,7 +104,7 @@ namespace newplan
         virtual void do_connect() override;
         virtual void after_connect() override;
 
-        virtual void start_service(NPRDMASession *sess) override;
+        virtual void start_service(RDMASession *sess) override;
 
     private:
         std::string server_ip_;
@@ -111,7 +131,7 @@ namespace newplan
         virtual void do_connect() override;
         virtual void after_connect() override;
 
-        virtual void start_service(NPRDMASession *sess) override;
+        virtual void start_service(RDMASession *sess) override;
 
     private:
         PreConnector *pre_connecting();
