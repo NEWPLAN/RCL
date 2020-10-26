@@ -457,8 +457,8 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
 
     ctx_group.push_back(ctx);
 
-    if (ctx_group.size() == 13)
-    {
+    if (ctx_group.size() == 15)
+    { // NEWPLAN: define the maximum flows in parallel.
         recv_threads.push_back(
             new std::thread([this] {
                 this->sync_thread_func();
