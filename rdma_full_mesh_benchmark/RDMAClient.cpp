@@ -112,9 +112,10 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
         {
         case RDMA_CM_EVENT_ADDR_RESOLVED:
         {
+            // NEWPLAN: traffic class configuration
             //LOG_INFO("In %s\n", "RDMA_CM_EVENT_ADDR_RESOLVED");
             build_connection(event_copy.id);
-            uint8_t tos = 96; //https://blog.csdn.net/sunshuying1010/article/details/103661289
+            uint8_t tos = 0; //https://blog.csdn.net/sunshuying1010/article/details/103661289
             if (rdma_set_option(event_copy.id, RDMA_OPTION_ID,
                                 RDMA_OPTION_ID_TOS,
                                 &tos, sizeof(uint8_t)))
