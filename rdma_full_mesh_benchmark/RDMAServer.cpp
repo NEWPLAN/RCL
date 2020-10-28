@@ -584,6 +584,7 @@ void RDMAServer::process_message(struct RDMAContext *ctx, uint32_t token,
     buf[0] = buf[len - 1] = 0;
 }
 
+// DictXiong: 应该不会调用这个
 void RDMAServer::on_completion(struct ibv_wc *wc)
 {
     struct rdma_cm_id *id = (struct rdma_cm_id *)(uintptr_t)wc->wr_id;
