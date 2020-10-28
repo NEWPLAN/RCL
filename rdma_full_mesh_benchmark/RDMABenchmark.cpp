@@ -1,5 +1,4 @@
 #include <iostream>
-#include <vector>
 #include "RDMABase.h"
 #include "RDMAServer.h"
 #include "RDMAClient.h"
@@ -58,7 +57,7 @@ void server_functions(std::vector<std::string> ip)
 
 void client_functions(std::vector<std::string> ip)
 {
-    vector< BlockingQueue<int>* > job_queues;
+    std::vector< BlockingQueue<int>* > job_queues;
     if (ip.size() == 0)
     {
         std::cout << "Error of local IP" << std::endl;
