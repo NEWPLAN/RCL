@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 #include "RDMABase.h"
 #include "RDMAServer.h"
 #include "RDMAClient.h"
