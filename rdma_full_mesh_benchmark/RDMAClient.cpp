@@ -421,7 +421,7 @@ void RDMAClient::post_receive(uint32_t msg_id)
 
 void RDMAClient::write_large_block(uint32_t len)
 {
-    std::cout << "Client write " << len << " to remote\n";
+    std::cout << "Client write " << len << " to remote, opcode " << IBV_WR_RDMA_WRITE_WITH_IMM <<"\n";
     struct rdma_cm_id *id = ctx->id;
 
     struct ibv_send_wr wr, *bad_wr = NULL;

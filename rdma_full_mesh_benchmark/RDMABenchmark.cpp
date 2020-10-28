@@ -78,7 +78,7 @@ void client_functions(std::vector<std::string> ip)
     for (int j = 0; j != 128; j++)
         for (auto i : job_queues)
         {
-            i->push(500 * 4096 * 1024);
+            i->push(536870908);
         }
     while (1)
     {
