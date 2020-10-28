@@ -24,7 +24,7 @@ RDMAClient::RDMAClient(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     std::cout << "Creating RDMAClient" << std::endl;
 }
-RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<int> *q)
+RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<uint32_t> *q)
 {
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_client_ip(client_ip.c_str());
