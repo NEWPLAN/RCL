@@ -8,7 +8,7 @@ class RDMAClient : public RDMABase
 {
 public:
     RDMAClient(RDMAAdapter &rdma_adapter);
-    RDMAClient(const std::string &server_ip, const std::string &client_ip);
+    RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<int> *q);
     ~RDMAClient();
 
     void setup();
@@ -45,6 +45,7 @@ private:
     struct sockaddr_in ser_in, local_in; /*server ip and local ip*/
 
     struct RDMAContext *ctx = 0;
+    BlockingQueue<int> *job_queue;
 };
 
 #endif

@@ -57,6 +57,7 @@ void server_functions(std::vector<std::string> ip)
 
 void client_functions(std::vector<std::string> ip)
 {
+    vector< BlockingQueue<int>* > job_queues;
     if (ip.size() == 0)
     {
         std::cout << "Error of local IP" << std::endl;
@@ -64,14 +65,14 @@ void client_functions(std::vector<std::string> ip)
     std::string local_ip = ip[0];
     for (size_t i = 1; i < ip.size(); i++)
     {
+        job_queues.push_back(new BlockingQueue<int>);
         std::string server_ip = ip[i];
 
         std::cout << "Connecting to: " << server_ip << std::endl;
-        new std::thread([server_ip, local_ip]() {
+        new std::thread([server_ip, local_ip, job_queues]() {
             RDMAClient *rclient;
-            rclient = new RDMAClient(server_ip, local_ip);
+            rclient = new RDMAClient(server_ip, local_ip, job_queues.back());
             rclient->setup();
-            rclient->write_large_block(4096 * 1000);
         });
     }
     while (1)

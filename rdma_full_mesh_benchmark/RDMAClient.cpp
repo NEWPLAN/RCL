@@ -24,10 +24,11 @@ RDMAClient::RDMAClient(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     std::cout << "Creating RDMAClient" << std::endl;
 }
-RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip)
+RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<int> *q)
 {
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_client_ip(client_ip.c_str());
+    this->job_queue = q;
     std::cout << "Creating RDMAClient" << std::endl;
 }
 RDMAClient::~RDMAClient()
@@ -263,7 +264,13 @@ void *RDMAClient::poll_cq(void *_id)
                     {
                         post_receive(1);
                         LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV_RDMA_WITH_IMM, wr id: " << wcs[index].wr_id;
-                        // 下面这一段对 imm 的处理原本在 IBV_WC_RECV 条件分支中... 咱也不知道为啥, 先给提到这里来
+                    }
+                    else if (wcs[index].opcode == IBV_WC_RECV)
+                    {
+                        LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV, wr id: " << wcs[index].wr_id
+                                                  << " imm_data: " << wcs[index].imm_data;
+                        post_receive(1);
+                        // 似乎即使带有立即数也会到 IBV_WC_RECV 条件分支中... 咱也不知道为啥
                         // DictXiong: 这...666似乎是某些初始化? 魔数杀我
                         if (wcs[index].imm_data == 666) 
                         {
@@ -283,12 +290,6 @@ void *RDMAClient::poll_cq(void *_id)
                             write_large_block(1024 * 1000);
                         }
                         */
-                    }
-                    else if (wcs[index].opcode == IBV_WC_RECV)
-                    {
-                        LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV, wr id: " << wcs[index].wr_id
-                                                  << " imm_data: " << wcs[index].imm_data;
-                        post_receive(1);
                     }
 
                     //on_completion(&wcs[index]);
