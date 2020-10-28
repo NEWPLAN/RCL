@@ -13,6 +13,7 @@ public:
 
     void setup();
     void start_service();
+    void write_large_block(uint32_t len);
 
 protected:
     virtual void *poll_cq(void *_id);
@@ -30,7 +31,7 @@ private:
     void send_next_chunk(uint32_t buffer_id, uint32_t window_id);
     void send_file_name(struct rdma_cm_id *id);
 
-    void write_large_block(uint32_t len);
+    
 
 private:
     void _send_loops();

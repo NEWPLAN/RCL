@@ -71,6 +71,7 @@ void client_functions(std::vector<std::string> ip)
             RDMAClient *rclient;
             rclient = new RDMAClient(server_ip, local_ip);
             rclient->setup();
+            rclient->write_large_block(4096 * 1000);
         });
     }
     while (1)
