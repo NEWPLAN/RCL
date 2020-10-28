@@ -45,7 +45,7 @@ private:
     struct sockaddr_in ser_in, local_in; /*server ip and local ip*/
 
     struct RDMAContext *ctx = 0;
-    BlockingQueue<int> *job_queue;
+    BlockingQueue<uint32_t> *job_queue;
 };
 
 #endif

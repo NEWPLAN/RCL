@@ -57,7 +57,7 @@ void server_functions(std::vector<std::string> ip)
 
 void client_functions(std::vector<std::string> ip)
 {
-    std::vector< BlockingQueue<int>* > job_queues;
+    std::vector< BlockingQueue<uint32_t>* > job_queues;
     if (ip.size() == 0)
     {
         std::cout << "Error of local IP" << std::endl;
@@ -65,7 +65,7 @@ void client_functions(std::vector<std::string> ip)
     std::string local_ip = ip[0];
     for (size_t i = 1; i < ip.size(); i++)
     {
-        job_queues.push_back(new BlockingQueue<int>);
+        job_queues.push_back(new BlockingQueue<uint32_t>);
         std::string server_ip = ip[i];
 
         std::cout << "Connecting to: " << server_ip << std::endl;
@@ -75,10 +75,11 @@ void client_functions(std::vector<std::string> ip)
             rclient->setup();
         });
     }
-    for (auto i : job_queues)
-    {
-        i->push(4096 * 1024);
-    }
+    for (int j = 0; j != 128; j++)
+        for (auto i : job_queues)
+        {
+            i->push(500 * 4096 * 1024);
+        }
     while (1)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
