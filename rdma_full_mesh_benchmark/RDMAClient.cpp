@@ -254,12 +254,14 @@ void *RDMAClient::poll_cq(void *_id)
             {
                 if (wcs[index].status == IBV_WC_SUCCESS)
                 {
-                    std::cout << "Received with imm = " << wcs[index].imm_data << " and opcode "
+                    std::cout << "WC with imm = " << wcs[index].imm_data << " and opcode "
                         << wcs[index].opcode << "\n";
                     if (wcs[index].opcode == IBV_WC_RDMA_WRITE)
                     { //判断write请求完成
                         LOG_EVERY_N(INFO, 100000) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id;
                         std::cout << "Client write " << wcs[index].imm_data << " finished\n";
+                        uint32_t len = job_queue->pop();
+                        write_large_block(len);
                     }
                     // DictXiong: 接收到来自服务端的消息
                     else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
