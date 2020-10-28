@@ -105,6 +105,7 @@ struct RDMAAdapter
         server_ip = "";
         client_ip = "";
     }
+    // DictXiong: 为什么这里不直接传 string?
     void set_server_ip(const char *_server_ip)
     {
         server_ip = _server_ip;

@@ -24,6 +24,12 @@ RDMAClient::RDMAClient(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     std::cout << "Creating RDMAClient" << std::endl;
 }
+RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip)
+{
+    this->rdma_adapter_.set_server_ip(server_ip.c_str());
+    this->rdma_adapter_.set_client_ip(client_ip.c_str());
+    std::cout << "Creating RDMAClient" << std::endl;
+}
 RDMAClient::~RDMAClient()
 {
     std::cout << "Destroying RDMAClient" << std::endl;
@@ -80,7 +86,7 @@ void RDMAClient::_init()
     conn->context = (void *)this->ctx;
 
     this->event_loop(ec);
-
+    // DictXiong: 应该不会运行到这儿了? 
     std::cout << "RDMAClient is launched" << std::endl;
     while (1)
     {
@@ -164,7 +170,7 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
             //break;
             break;
         }
-        case RDMA_CM_EVENT_REJECTED:
+        case RDMA_CM_EVENT_REJECTED: // DictXiong: 什么时候会到这儿来?
         {
             //LOG_INFO("In %s\n", "RDMA_CM_EVENT_REJECTED");
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -231,6 +237,7 @@ void *RDMAClient::poll_cq(void *_id)
 
     while (true)
     {
+        // DictXiong: 现在理论上每次只有一个 cqe.
         int ne = ibv_poll_cq(cq, MAX_DATA_IN_FLIGHT * 2, wcs);
         if (ne < 0)
         {
@@ -250,16 +257,14 @@ void *RDMAClient::poll_cq(void *_id)
                     { //判断write请求完成
                         LOG_EVERY_N(INFO, 100000) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id;
                     }
+                    // DictXiong: 接收到来自服务端的消息
                     else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
                     {
                         post_receive(1);
                         LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV_RDMA_WITH_IMM, wr id: " << wcs[index].wr_id;
-                    }
-                    else if (wcs[index].opcode == IBV_WC_RECV)
-                    {
-                        LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV, wr id: " << wcs[index].wr_id
-                                                  << " imm_data: " << wcs[index].imm_data;
-                        if (wcs[index].imm_data == 666)
+                        // 下面这一段对 imm 的处理原本在 IBV_WC_RECV 条件分支中... 咱也不知道为啥, 先给提到这里来
+                        // DictXiong: 这...666似乎是某些初始化? 魔数杀我
+                        if (wcs[index].imm_data == 666) 
                         {
                             uint32_t msg_id = wcs[index].wr_id;
                             LOG(INFO) << "Sending to peer the local information";
@@ -269,12 +274,19 @@ void *RDMAClient::poll_cq(void *_id)
                             printf("Server is ready to send\n");
                             send_file_name(id);
                         }
+                        /* DictXiong: we won't response to this any more. WE decide when to send.
                         else if (wcs[index].imm_data == 888)
                         {
                             LOG_EVERY_N(INFO, 10000) << "Write large buffer to peer";
                             //1MB
                             write_large_block(1024 * 1000);
                         }
+                        */
+                    }
+                    else if (wcs[index].opcode == IBV_WC_RECV)
+                    {
+                        LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV, wr id: " << wcs[index].wr_id
+                                                  << " imm_data: " << wcs[index].imm_data;
                         post_receive(1);
                     }
 
@@ -287,7 +299,8 @@ void *RDMAClient::poll_cq(void *_id)
             }
         }
     }
-
+    // DictXiong: will come here?
+    std::cout << "Wow! I'm realy here RDMAClient.cpp:303";
     while (1)
     {
         TEST_NZ(ibv_get_cq_event(ctx->comp_channel, &cq, &ev_ctx));
@@ -488,7 +501,8 @@ void RDMAClient::send_next_chunk(uint32_t buffer_id, uint32_t window_id)
     if (size == -1)
         rc_die("read() failed\n");
 
-    write_remote(buffer_id, window_id, size);
+    std::cout << "F*ck. Who called me?";
+    //write_remote(buffer_id, window_id, size);
 }
 
 void RDMAClient::send_file_name(struct rdma_cm_id *id)
@@ -499,12 +513,10 @@ void RDMAClient::send_file_name(struct rdma_cm_id *id)
     printf("Sending file name: %s\n", this->ip_addr_.c_str());
     ctx->buffer[0] = 0;
     ctx->buffer[this->ip_addr_.length() + 1] = 0;
-
+    // DictXiong: 23 似乎是个魔数
     write_large_block(23);
-
-    // write_remote(0, 0, 2 + this->ip_addr_.length());
 }
-
+// DictXiong: 似乎也不会被调用? 
 void RDMAClient::on_completion(struct ibv_wc *wc)
 {
     struct rdma_cm_id *id = ctx->id;
@@ -522,6 +534,7 @@ void RDMAClient::on_completion(struct ibv_wc *wc)
 
             printf("Received MR, ready to send\n");
             send_file_name(id);
+            /* DictXiong: no. WE decide when to send.
             for (int index = 1; index < MAX_DATA_IN_FLIGHT; index++)
             {
                 //uint32_t window_id = index;
@@ -530,6 +543,7 @@ void RDMAClient::on_completion(struct ibv_wc *wc)
                 ctx->buffer[base_addr + BUFFER_SIZE - 1] = index;
                 send_next_chunk(index, window_id);
             }
+            */
             //ctx->window_id++;
         }
         else if (ctx->msg[msg_id].id == MSG_READY)
@@ -537,11 +551,9 @@ void RDMAClient::on_completion(struct ibv_wc *wc)
             //batch_index:
             // |   0-47  |    48   |    49   |
             // |buffer_id|window_id|num_token|
+
+            /* DictXiong: now WE decide when to send.
             uint32_t num_token = ctx->msg[msg_id].data.batch_index[MSG_NUM_OFFEST];
-#ifdef DEBUG_BATCH_MSG
-            uint32_t window_id = ctx->msg[msg_id].data.batch_index[WINDOW_ID_OFFEST];
-            LOG_INFO("Recv: num_token: %u, window_id: %u\n", num_token, window_id);
-#endif
             for (uint32_t token_id = 0; token_id < num_token; token_id++)
             {
                 int buffer_id = ctx->msg[msg_id].data.batch_index[token_id];
@@ -556,10 +568,8 @@ void RDMAClient::on_completion(struct ibv_wc *wc)
                     ctx->window_id = (ctx->window_id + 1) % WINDOWS_NUM;
                     window_id = ctx->window_id;
                 }
-#ifdef DEBUG_BATCH_MSG
-                LOG_INFO("    buffer id: %u\n", buffer_id);
-#endif
             }
+            */
         }
         else if (ctx->msg[msg_id].id == MSG_DONE)
         {

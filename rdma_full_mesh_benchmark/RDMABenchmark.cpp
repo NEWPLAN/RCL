@@ -46,13 +46,8 @@ int single_benchmark(int argc, char const *argv[])
 
 void server_functions(std::vector<std::string> ip)
 {
-    RDMAAdapter rdma_adapter;
-    //rdma_adapter.set_server_ip(ip[0].c_str());
-    rdma_adapter.set_server_ip("0.0.0.0");
-
     RDMAServer *rserver;
-
-    rserver = new RDMAServer(rdma_adapter);
+    rserver = new RDMAServer("0.0.0.0");
     rserver->setup();
     while (1)
     {
@@ -74,11 +69,7 @@ void client_functions(std::vector<std::string> ip)
         std::cout << "Connecting to: " << server_ip << std::endl;
         new std::thread([server_ip, local_ip]() {
             RDMAClient *rclient;
-            RDMAAdapter rdma_adapter;
-
-            rdma_adapter.set_server_ip(server_ip.c_str());
-            rdma_adapter.set_client_ip(local_ip.c_str());
-            rclient = new RDMAClient(rdma_adapter);
+            rclient = new RDMAClient(server_ip, local_ip);
             rclient->setup();
         });
     }

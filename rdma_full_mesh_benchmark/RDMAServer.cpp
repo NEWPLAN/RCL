@@ -23,6 +23,11 @@ RDMAServer::RDMAServer(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     LOG_INFO("Creating RDMAServer\n");
 }
+RDMAServer::RDMAServer(const std::string &server_ip)
+{
+    this->rdma_adapter_.set_server_ip(server_ip.c_str());
+}
+
 RDMAServer::~RDMAServer()
 {
     LOG_INFO("Destroy RDMAServer\n");
@@ -60,52 +65,22 @@ void RDMAServer::server_event_loops()
         case RDMA_CM_EVENT_CONNECT_REQUEST:
         {
             LOG_INFO("Server: RDMA_CM_EVENT_CONNECT_REQUEST\n");
-
-            // {
-            //     struct sockaddr *peer_addr = &event_copy.id->route.addr.dst_addr; //rdma_get_peer_addr(event_copy.id);
-            //     struct sockaddr *local_addr = rdma_get_local_addr(event_copy.id);
-            //     struct sockaddr_in *server_addr = (struct sockaddr_in *)local_addr;
-            //     struct sockaddr_in *client_addr = (struct sockaddr_in *)peer_addr;
-
-            //     printf("[%s:%d] [%s:%d] has established a connection with [%s:%d]\n",
-            //            __FILE__, __LINE__,
-            //            inet_ntoa(server_addr->sin_addr),
-            //            ntohs(server_addr->sin_port),
-            //            inet_ntoa(client_addr->sin_addr),
-            //            ntohs(client_addr->sin_port));
-            // }
-
             build_connection(event_copy.id);
             on_pre_conn(event_copy.id);
             //add qos here
             TEST_NZ(rdma_accept(event_copy.id, &cm_params));
-
             break;
         }
         case RDMA_CM_EVENT_ESTABLISHED:
         {
             LOG_INFO("Server: RDMA_CM_EVENT_ESTABLISHED\n");
-
             on_connection(event_copy.id);
             this->rdma_adapter_.recv_rdma_cm_id.push_back(event_copy.id);
-
-            // struct sockaddr *peer_addr = &event_copy.id->route.addr.dst_addr; //rdma_get_peer_addr(event_copy.id);
-            // struct sockaddr *local_addr = rdma_get_local_addr(event_copy.id);
-            // struct sockaddr_in *server_addr = (struct sockaddr_in *)local_addr;
-            // struct sockaddr_in *client_addr = (struct sockaddr_in *)peer_addr;
-
-            // printf("[%s:%d] [%s:%d] has established a connection with [%s:%d]\n",
-            //        __FILE__, __LINE__,
-            //        inet_ntoa(server_addr->sin_addr),
-            //        ntohs(server_addr->sin_port),
-            //        inet_ntoa(client_addr->sin_addr),
-            //        ntohs(client_addr->sin_port));
             break;
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
             LOG_INFO("Server: RDMA_CM_EVENT_DISCONNECTED\n");
-
             rdma_destroy_qp(event_copy.id);
             on_disconnect(event_copy.id);
             rdma_destroy_id(event_copy.id);
@@ -312,14 +287,8 @@ void *RDMAServer::poll_cq(void *_id)
                             ctx->buffer[23] = 0;
                             printf("Connection info: %s\n", ctx->buffer + 1);
                         }
-                        else
-                        {
-                            ctx->q2->push(wcs[index].imm_data);
-                        }
-
                         post_receive(id);
-                        ctx->q1->pop();
-                        send_message(id, 0, 888);
+                        // DictXiong: 似乎也不用发 MSG_READY 回去.
                     }
                     else
                     {
@@ -333,7 +302,8 @@ void *RDMAServer::poll_cq(void *_id)
             }
         }
     }
-
+    // DictXiong: will come here?
+    std::cout << "WOW I'm really here RDMAServer.cpp:342";
     while (true)
     {
         TEST_NZ(ibv_get_cq_event(ctx->comp_channel,
@@ -441,6 +411,7 @@ void RDMAServer::on_connection(struct rdma_cm_id *id)
 }
 
 static int client_index = 0;
+// ????? 没有人调用这个函数? 
 void RDMAServer::build_context(struct rdma_cm_id *id)
 {
     RDMABase::build_context(id);
@@ -465,7 +436,7 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
             }));
     }
 }
-
+// DictXiong: 在这里申请了内存
 void RDMAServer::on_pre_conn(struct rdma_cm_id *id)
 {
 
@@ -547,7 +518,8 @@ void RDMAServer::send_message(struct rdma_cm_id *id,
     memset(&wr, 0, sizeof(wr));
 
     wr.wr_id = token_id; // for debugging.
-    wr.opcode = IBV_WR_SEND;
+    wr.opcode = IBV_WR_SEND_WITH_IMM;
+    wr.imm_data = imm_data;
     wr.sg_list = &sge;
     wr.num_sge = 1;
     wr.send_flags = IBV_SEND_SIGNALED;
@@ -556,12 +528,9 @@ void RDMAServer::send_message(struct rdma_cm_id *id,
     sge.addr = (uintptr_t)&ctx->msg[token_id];
     sge.length = sizeof(struct message);
     sge.lkey = ctx->msg_mr->lkey;
-    //if (control_msg)
     {
-        wr.opcode = IBV_WR_SEND_WITH_IMM;
         if (imm_data == 888)
             sge.length = 0;
-        wr.imm_data = imm_data;
     }
 
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
@@ -578,6 +547,7 @@ void RDMAServer::send_message(struct rdma_cm_id *id,
 void RDMAServer::process_message(struct RDMAContext *ctx, uint32_t token,
                                  uint8_t *buf, uint32_t len)
 {
+    std::cout << "似乎正常情况下也不会到这里 RDMAServer::process_message";
     if (token != buf[len - 1] || token != buf[0]) //check data
     {
         LOG_INFO("Unknown error: Recv buffer id: %u, size: %u, data:[%d - %d]\n",
@@ -622,12 +592,12 @@ void RDMAServer::on_completion(struct ibv_wc *wc)
     if (wc->opcode == IBV_WC_RECV_RDMA_WITH_IMM)
     {
         uint32_t imm_data_recv = ntohl(wc->imm_data);
-        uint32_t size = imm_data_recv & 0XFFFFFF;
+        uint32_t size = imm_data_recv & 0XFFFFFF; // DictXiong: err... isn't 0xFFFF?
         uint32_t buffer_id = (imm_data_recv >> 24) & 0xFF;
         //uint32_t window_id = (imm_data_recv >> 16) & 0xFF;
 
         if (buffer_id != ctx->buffer[buffer_id * BUFFER_SIZE] ||
-            buffer_id != ctx->buffer[buffer_id * BUFFER_SIZE + size - 1])
+            buffer_id != ctx->buffer[buffer_id * BUFFER_SIZE + size - 1]) // DictXiong: ??? why not ctx->buffer[window_id * WINDOW_SIZE + buffer_id * BUFFER_SIZE + ...]
         {
             printf("Unknown error: Recv buffer id: %u, size: %u, data:[%d - %d]\n",
                    buffer_id, size, ctx->buffer[buffer_id * BUFFER_SIZE],
