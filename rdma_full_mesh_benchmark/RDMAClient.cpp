@@ -383,7 +383,7 @@ void RDMAClient::post_receive(uint32_t msg_id)
     wr.sg_list = &sge;
     wr.num_sge = 1;
 
-    //memset(&ctx->msg[msg_id], 0, sizeof(struct message)); // ?加上这句就会RE
+    //memset(&ctx->msg[msg_id], 0, sizeof(struct message));
     sge.addr = (uintptr_t)&ctx->msg[msg_id];
     sge.length = sizeof(struct message);
     sge.lkey = ctx->msg_mr->lkey;

@@ -319,7 +319,7 @@ void RDMAServer::on_connection(struct rdma_cm_id *id)
     ctx->msg[0].data.mr.addr = (uintptr_t)ctx->buffer_mr->addr;
     ctx->msg[0].data.mr.rkey = ctx->buffer_mr->rkey;
 
-    send_message(id, 1, IMM_MR);
+    send_message(id, 0, IMM_MR);
 }
 
 // RDMABase::build_connection 调用了它
