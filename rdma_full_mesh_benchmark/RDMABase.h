@@ -39,6 +39,14 @@ enum message_id
 enum work_request_id
 {
     WR_WRITE_LARGE_BLOCK = 1248,
+    WR_SEND_ONLY_IMM,
+};
+
+enum imm_id
+{
+    NO_IMM = 1500,
+    IMM_TEST,
+    IMM_MR,
 };
 
 struct message
@@ -93,7 +101,6 @@ struct RDMAContext
     struct ConnectionInfo ctx_info;
 
     struct timeval start;
-    BlockingQueue<int> *q1, *q2;
 };
 
 #include <iostream>

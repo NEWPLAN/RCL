@@ -32,7 +32,7 @@ RDMAServer::~RDMAServer()
 {
     LOG_INFO("Destroy RDMAServer\n");
 }
-
+// 阻塞. 
 void RDMAServer::setup()
 {
     LOG_INFO("Setup RDMAServer\n");
@@ -149,6 +149,7 @@ inline void parse_from_imm_data(uint32_t imm_data,
     *window_id = (imm_data_recv >> 16) & 0xFF;
     return;
 }
+/* DictXiong: 暂时不删, 是因为还可以用来参考
 #include "timer.h"
 void RDMAServer::sync_thread_func()
 {
@@ -228,6 +229,7 @@ void RDMAServer::sync_thread_func()
         }
     }
 }
+*/
 
 void *RDMAServer::poll_cq(void *_id)
 {
@@ -316,34 +318,34 @@ void RDMAServer::on_connection(struct rdma_cm_id *id)
     ctx->msg[0].data.mr.addr = (uintptr_t)ctx->buffer_mr->addr;
     ctx->msg[0].data.mr.rkey = ctx->buffer_mr->rkey;
 
-    send_message(id, 0);
+    send_message(id, 0, IMM_MR);
 }
 
-static int client_index = 0;
-// ????? 没有人调用这个函数? 
+// RDMABase::build_connection 调用了它
 void RDMAServer::build_context(struct rdma_cm_id *id)
 {
     RDMABase::build_context(id);
 
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
-    ctx->client_index = client_index++;
-    std::thread *recv_thread = new std::thread([this, id]() {
+    ctx->client_index = num_clients++;
+    new std::thread([this, id]() {
         this->poll_cq((void *)id);
     });
-    recv_threads.push_back(recv_thread);
+    job_queues.push_back(new BlockingQueue<uint32_t>);
+    new std::thread([this, id, &job_queues]() {
+        this->poll_job_queue(id, job_queues.back());
+    });
+}
 
-    ctx->q1 = new BlockingQueue<int>();
-    ctx->q2 = new BlockingQueue<int>();
-
-    ctx_group.push_back(ctx);
-
-    if (ctx_group.size() == 1)
-    { // NEWPLAN: define the maximum flows in parallel.
-        recv_threads.push_back(
-            new std::thread([this] {
-                this->sync_thread_func();
-            }));
+// 对于每一个 Client, 发送消息.
+void RDMAServer::poll_job_queue(struct rdma_cm_id *id, BlockingQueue<uint32_t> *que)
+{
+    while (true)
+    {
+        uint32_t imm = que->pop();
+        send_imm(id, imm);
     }
+    
 }
 // DictXiong: 在这里申请了内存
 void RDMAServer::on_pre_conn(struct rdma_cm_id *id)
@@ -416,9 +418,7 @@ void RDMAServer::post_receive(struct rdma_cm_id *id)
     TEST_NZ(ibv_post_recv(id->qp, &wr, &bad_wr));
 }
 
-void RDMAServer::send_message(struct rdma_cm_id *id,
-                              uint32_t token_id,
-                              uint32_t imm_data)
+void RDMAServer::send_message(struct rdma_cm_id *id, uint32_t token_id, uint32_t imm_data)
 {
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
     struct ibv_send_wr wr, *bad_wr = NULL;
@@ -437,10 +437,6 @@ void RDMAServer::send_message(struct rdma_cm_id *id,
     sge.addr = (uintptr_t)&ctx->msg[token_id];
     sge.length = sizeof(struct message);
     sge.lkey = ctx->msg_mr->lkey;
-    {
-        if (imm_data == 888)
-            sge.length = 0;
-    }
 
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 
@@ -451,6 +447,28 @@ void RDMAServer::send_message(struct rdma_cm_id *id,
     // to hold another send work request when it completed.
     // To this end, we should poll_cq immediately.
     // refer to: https://zhuanlan.zhihu.com/p/101250614
+}
+
+void RDMAServer::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
+{
+    struct RDMAContext *ctx = (struct RDMAContext *)id->context;
+    struct ibv_send_wr wr, *bad_wr = NULL;
+    struct ibv_sge sge;
+
+    memset(&wr, 0, sizeof(wr));
+
+    wr.wr_id = WR_SEND_ONLY_IMM; 
+    wr.opcode = IBV_WR_SEND_WITH_IMM;
+    wr.imm_data = imm_data;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+    wr.send_flags = IBV_SEND_SIGNALED;
+
+    sge.addr = (uintptr_t)&ctx->msg[0];
+    sge.length = 0;
+    sge.lkey = ctx->msg_mr->lkey;
+
+    TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
 
 void RDMAServer::process_message(struct RDMAContext *ctx, uint32_t token,
@@ -557,5 +575,13 @@ void RDMAServer::on_completion(struct ibv_wc *wc)
             }
             send_message(id, buffer_id);
         }
+    }
+}
+
+void RDMAServer::broadcast_imm(uint32_t imm)
+{
+    for (auto i : job_queues)
+    {
+        i->push(imm);
     }
 }

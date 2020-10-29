@@ -274,7 +274,7 @@ void *RDMAClient::poll_cq(void *_id)
                         post_receive(1);
                         // 似乎即使带有立即数也会到 IBV_WC_RECV 条件分支中... 咱也不知道为啥
                         // DictXiong: 这...666似乎是某些初始化? 魔数杀我
-                        if (wcs[index].imm_data == 666) 
+                        if (wcs[index].imm_data == IMM_MR) 
                         {
                             uint32_t msg_id = wcs[index].wr_id;
                             LOG(INFO) << "Sending to peer the local information";

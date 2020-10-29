@@ -16,6 +16,7 @@ public:
 
     void setup();
     void start_service();
+    void broadcast_imm(enum imm_id imm);
 
 protected:
     virtual void *poll_cq(void *_id);
@@ -26,12 +27,12 @@ protected:
 
 private:
     void post_receive(struct rdma_cm_id *id);
-    void send_message(struct rdma_cm_id *id,
-                      uint32_t token_id,
-                      uint32_t imm_data = 666);
+    void send_message(struct rdma_cm_id *id, uint32_t token_id, uint32_t imm_data = NO_IMM);
+    void send_imm(struct rdma_cm_id *id, uint32_t imm_data = IMM_TEST);
     void on_completion(struct ibv_wc *wc);
     void process_message(struct RDMAContext *ctx, uint32_t token,
                          uint8_t *buf, uint32_t len);
+    void poll_job_queue(struct rdma_cm_id *id, BlockingQueue<uint32_t> *que);
 
 private:
     void server_event_loops();
@@ -42,13 +43,16 @@ private:
 private:
     std::thread *aggregator_thread = nullptr;
     RDMAAdapter rdma_adapter_;
+    // 是否要删掉?
     std::vector<std::thread *> recv_threads;
 
-    std::vector<struct RDMAContext *> ctx_group;
+    uint32_t num_clients = 0;
 
     std::mutex mtx;
     std::condition_variable cv;
     bool ready = false;
+    // send 队列, 内含立即数的值 imm_id
+    std::vector< BlockingQueue<uint32_t>* > job_queues;
 };
 
 #endif

@@ -13,7 +13,6 @@ public:
 
     void setup();
     void start_service();
-    void write_large_block(uint32_t len);
 
 protected:
     virtual void *poll_cq(void *_id);
@@ -30,9 +29,9 @@ private:
                       uint32_t len);
     void send_next_chunk(uint32_t buffer_id, uint32_t window_id);
     void send_file_name(struct rdma_cm_id *id);
+    void write_large_block(uint32_t len);
 
     
-
 private:
     void _send_loops();
     void _init();
@@ -45,6 +44,7 @@ private:
     struct sockaddr_in ser_in, local_in; /*server ip and local ip*/
 
     struct RDMAContext *ctx = 0;
+    // write 队列, 内含要 write 的数据块大小
     BlockingQueue<uint32_t> *job_queue;
 };
 
