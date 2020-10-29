@@ -258,8 +258,8 @@ void *RDMAClient::poll_cq(void *_id)
                     if (wcs[index].opcode == IBV_WC_RDMA_WRITE)
                     { //判断write请求完成
                         LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id << ", imm = " << wcs[index].imm_data;
-                        uint32_t len = job_queue->pop();
-                        write_large_block(len);
+                        //uint32_t len = job_queue->pop();
+                        //write_large_block(len);
                     }
                     // DictXiong: 接收到来自服务端的消息
                     else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
