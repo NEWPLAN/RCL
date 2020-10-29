@@ -83,6 +83,7 @@ void client_functions(std::vector<std::string> ip)
             rclient->setup();
         });
     }
+    std::this_thread::sleep_for(std::chrono::seconds(7));
     for (int j = 0; j != 1; j++)
         for (auto i : job_queues)
         {
