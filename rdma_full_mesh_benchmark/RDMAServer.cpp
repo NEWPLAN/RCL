@@ -281,7 +281,7 @@ void *RDMAServer::poll_cq(void *_id)
                     else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
                     {
                         //add_performance(wcs[index].imm_data);
-                        LOG_EVERY_N(INFO, 10000) << "Receive msg: " << wcs[index].imm_data;
+                        LOG_EVERY_N(INFO, 1) << "Receive msg: " << wcs[index].imm_data;
                         if (wcs[index].imm_data == 23)
                         {
                             ctx->buffer[23] = 0;
@@ -428,7 +428,7 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
 
     ctx_group.push_back(ctx);
 
-    if (ctx_group.size() == 15)
+    if (ctx_group.size() == 1)
     { // NEWPLAN: define the maximum flows in parallel.
         recv_threads.push_back(
             new std::thread([this] {
