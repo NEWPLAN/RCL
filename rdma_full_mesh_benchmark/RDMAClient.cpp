@@ -258,7 +258,7 @@ void *RDMAClient::poll_cq(void *_id)
                         << wcs[index].opcode << "\n";
                     if (wcs[index].opcode == IBV_WC_RDMA_WRITE)
                     { //判断write请求完成
-                        LOG_EVERY_N(INFO, 100000) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id;
+                        LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id;
                         std::cout << "Client write " << wcs[index].imm_data << " finished\n";
                         uint32_t len = job_queue->pop();
                         write_large_block(len);
