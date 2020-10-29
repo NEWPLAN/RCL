@@ -72,6 +72,10 @@ void client_functions(std::vector<std::string> ip)
         new std::thread([server_ip, local_ip, job_queues]() {
             RDMAClient *rclient;
             rclient = new RDMAClient(server_ip, local_ip, job_queues.back());
+            // 测试 bind_recv_imm
+            rclient->bind_recv_imm(666, [](ibv_wc* wc){
+                std::cout << "芜湖起飞\n" ;
+            });
             rclient->setup();
         });
     }

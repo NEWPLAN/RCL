@@ -284,6 +284,8 @@ void *RDMAClient::poll_cq(void *_id)
                             printf("Server is ready to send\n");
                             send_file_name(id);
                         }
+                        on_imm_recv(&wcs[index]);
+
                         /* DictXiong: we won't response to this any more. WE decide when to send.
                         else if (wcs[index].imm_data == 888)
                         {

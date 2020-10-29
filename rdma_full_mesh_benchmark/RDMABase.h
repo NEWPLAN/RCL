@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <pthread.h>
+#include <functional>
+#include <map>
 
 #include <rdma/rdma_cma.h>
 #include <glog/logging.h>
@@ -182,11 +184,14 @@ public:
     virtual ~RDMABase() {}
     void show_performance(int time_duration = 1);
     void add_performance(size_t data_num);
+    // 若添加, 则返回 true; 若覆盖, 则返回 false.
+    bool bind_recv_imm(uint32_t imm, std::function<void(ibv_wc*)> func);
 
 protected:
     virtual void on_disconnect(struct rdma_cm_id *id) = 0;
     virtual void on_connection(struct rdma_cm_id *id) = 0;
     virtual void on_pre_conn(struct rdma_cm_id *id) = 0;
+    virtual void on_imm_recv(struct ibv_wc *wc);
 
     virtual void build_connection(struct rdma_cm_id *id);
     virtual void build_qp_attr(struct rdma_cm_id *id,
@@ -199,12 +204,16 @@ protected:
     virtual void rc_die(const char *reason);
     virtual void log_info(const char *format, ...);
 
+
 public:
     virtual struct ibv_pd *rc_get_pd(struct rdma_cm_id *id);
+    
 
 private:
     RDMAAdapter *rdma_adapter_;
     size_t recv_count_ = 0;
+    // 消息绑定. 在 poll_cq 里面, 对于所有接收到的数据, 其 imm_data 对应要执行的操作. RDMABase 负责收集和存储, 并提供 wc 处理函数. C/S 应当在知道数据有 imm 时调用. 
+    std::map<uint32_t, std::function<void(ibv_wc*)> > recv_imm_binding;
 };
 
 #endif

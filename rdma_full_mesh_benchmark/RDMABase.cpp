@@ -190,3 +190,25 @@ void RDMABase::add_performance(size_t data_num)
     std::lock_guard<std::mutex> myltx(mtx);
     perf_data += data_num;
 }
+bool RDMABase::bind_recv_imm(uint32_t imm, std::function<void(ibv_wc*)> func)
+{
+    auto pos = recv_imm_binding.find(imm);
+    if (pos == recv_imm_binding.end())
+    {
+        recv_imm_binding[imm] = func;
+        return false;
+    }
+    else 
+    {
+        pos->second = func;
+        return true;
+    }
+}
+void RDMABase::on_imm_recv(struct ibv_wc *wc)
+{
+    auto pos = recv_imm_binding.find(wc->imm_data);
+    if (pos != recv_imm_binding.end())
+    {
+        (pos->second)(wc);
+    }
+}
