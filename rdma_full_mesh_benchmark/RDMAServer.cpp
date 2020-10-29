@@ -319,7 +319,7 @@ void RDMAServer::on_connection(struct rdma_cm_id *id)
     ctx->msg[0].data.mr.addr = (uintptr_t)ctx->buffer_mr->addr;
     ctx->msg[0].data.mr.rkey = ctx->buffer_mr->rkey;
 
-    send_message(id, 0, IMM_MR);
+    send_message(id, 1, IMM_MR);
 }
 
 // RDMABase::build_connection 调用了它
@@ -463,13 +463,13 @@ void RDMAServer::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
     wr.wr_id = WR_SEND_ONLY_IMM; 
     wr.opcode = IBV_WR_SEND_WITH_IMM;
     wr.imm_data = imm_data;
-    wr.sg_list = NULL;
-    wr.num_sge = 0;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
     wr.send_flags = IBV_SEND_SIGNALED;
 
-    //sge.addr = (uintptr_t)&ctx->msg[1];
-    //sge.length = sizeof(struct message);
-    //sge.lkey = ctx->msg_mr->lkey;
+    sge.addr = (uintptr_t)&ctx->msg[1];
+    sge.length = sizeof(struct message);
+    sge.lkey = ctx->msg_mr->lkey;
 
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
