@@ -344,6 +344,7 @@ void RDMAServer::poll_job_queue(struct rdma_cm_id *id, BlockingQueue<uint32_t> *
     while (true)
     {
         uint32_t imm = que->pop();
+        LOG_EVERY_N(INFO, 1) << "Send " << imm << " to client " << id->context.
         send_imm(id, imm);
     }
     
@@ -581,6 +582,7 @@ void RDMAServer::on_completion(struct ibv_wc *wc)
 
 void RDMAServer::broadcast_imm(uint32_t imm)
 {
+    LOG_EVERY_N(INFO, 1) << "Broadcast " << imm << " to " << job_queues.size() <<" clients";
     for (auto i : job_queues)
     {
         i->push(imm);
