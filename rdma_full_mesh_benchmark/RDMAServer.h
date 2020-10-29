@@ -16,7 +16,7 @@ public:
 
     void setup();
     void start_service();
-    void broadcast_imm(enum imm_id imm);
+    void broadcast_imm(uint32_t imm);
 
 protected:
     virtual void *poll_cq(void *_id);

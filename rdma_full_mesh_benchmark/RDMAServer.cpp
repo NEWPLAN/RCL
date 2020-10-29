@@ -331,9 +331,10 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
     new std::thread([this, id]() {
         this->poll_cq((void *)id);
     });
-    job_queues.push_back(new BlockingQueue<uint32_t>);
-    new std::thread([this, id, &job_queues]() {
-        this->poll_job_queue(id, job_queues.back());
+    auto que = new BlockingQueue<uint32_t>;
+    job_queues.push_back(que);
+    new std::thread([this, id, que]() {
+        this->poll_job_queue(id, que);
     });
 }
 
