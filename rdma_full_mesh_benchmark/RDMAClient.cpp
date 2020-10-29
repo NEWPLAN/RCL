@@ -155,6 +155,9 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
             this->send_thread = new std::thread([this, event_copy]() {
                 this->poll_cq((void *)(event_copy.id));
             });
+            new std::thread([this](){
+                this->pool_job_queue();
+            });
 
             struct sockaddr *peer_addr = rdma_get_peer_addr(event_copy.id);
             struct sockaddr *local_addr = rdma_get_local_addr(event_copy.id);
@@ -258,8 +261,6 @@ void *RDMAClient::poll_cq(void *_id)
                     if (wcs[index].opcode == IBV_WC_RDMA_WRITE)
                     { //判断write请求完成
                         LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id << ", imm = " << wcs[index].imm_data;
-                        //uint32_t len = job_queue->pop();
-                        //write_large_block(len);
                     }
                     // DictXiong: 接收到来自服务端的消息
                     else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
@@ -308,6 +309,17 @@ void *RDMAClient::poll_cq(void *_id)
     // DictXiong: will come here?
     std::cout << "Wow! I'm realy here RDMAClient.cpp:303";
     return NULL;
+}
+
+// 向 Server 发送数据块
+void RDMAServer::poll_job_queue()
+{
+    while (true)
+    {
+        uint32_t len = job_queue->pop();
+        write_large_block(len);
+    }
+    
 }
 
 void RDMAClient::on_pre_conn(struct rdma_cm_id *id)
