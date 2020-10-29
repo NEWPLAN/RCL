@@ -468,7 +468,7 @@ void RDMAServer::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
     wr.send_flags = IBV_SEND_SIGNALED;
 
     sge.addr = (uintptr_t)&ctx->msg[0];
-    sge.length = 0;
+    sge.length = sizeof(struct message);
     sge.lkey = ctx->msg_mr->lkey;
 
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
