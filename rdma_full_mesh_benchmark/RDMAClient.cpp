@@ -156,7 +156,7 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
                 this->poll_cq((void *)(event_copy.id));
             });
             new std::thread([this](){
-                this->pool_job_queue();
+                this->poll_job_queue();
             });
 
             struct sockaddr *peer_addr = rdma_get_peer_addr(event_copy.id);
@@ -312,7 +312,7 @@ void *RDMAClient::poll_cq(void *_id)
 }
 
 // 向 Server 发送数据块
-void RDMAServer::poll_job_queue()
+void RDMAClient::poll_job_queue()
 {
     while (true)
     {
