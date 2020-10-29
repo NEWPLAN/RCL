@@ -51,11 +51,11 @@ void server_functions(std::vector<std::string> ip)
     new std::thread([rserver](){
         rserver->setup();
     });
-    rserver->broadcast_imm(IMM_TEST);
 
     while (1)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
+        rserver->broadcast_imm(IMM_TEST);
     }
 }
 
@@ -83,7 +83,7 @@ void client_functions(std::vector<std::string> ip)
             rclient->setup();
         });
     }
-    for (int j = 0; j != 5; j++)
+    for (int j = 0; j != 0; j++)
         for (auto i : job_queues)
         {
             i->push(536870908);
