@@ -277,6 +277,7 @@ void *RDMAServer::poll_cq(void *_id)
             {
                 if (wcs[index].status == IBV_WC_SUCCESS)
                 {
+                    LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wcs[index].wr_id << ", imm: " << wcs[index].imm_data << ", opcode: " << wcs[index].opcode;
                     if (wcs[index].opcode == IBV_WC_SEND)
                     {
                     }
@@ -344,7 +345,7 @@ void RDMAServer::poll_job_queue(struct rdma_cm_id *id, BlockingQueue<uint32_t> *
     while (true)
     {
         uint32_t imm = que->pop();
-        LOG_EVERY_N(INFO, 1) << "Send " << imm << " to client " << id->context.
+        LOG_EVERY_N(INFO, 1) << "Send " << imm << " to client " << id->context;
         send_imm(id, imm);
     }
     
