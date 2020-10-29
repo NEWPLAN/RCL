@@ -75,7 +75,7 @@ void client_functions(std::vector<std::string> ip)
             rclient->setup();
         });
     }
-    for (int j = 0; j != 32; j++)
+    for (int j = 0; j != 5; j++)
         for (auto i : job_queues)
         {
             i->push(536870908);
