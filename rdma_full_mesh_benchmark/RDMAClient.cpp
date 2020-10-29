@@ -254,12 +254,10 @@ void *RDMAClient::poll_cq(void *_id)
             {
                 if (wcs[index].status == IBV_WC_SUCCESS)
                 {
-                    LOG_EVERY_N(INFO, 1) << "WC with imm = " << wcs[index].imm_data << " and opcode "
-                        << wcs[index].opcode;
+                    LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wcs[index].wr_id << ", imm: " << wcs[index].imm_data << ", opcode: " << wcs[index].opcode;
                     if (wcs[index].opcode == IBV_WC_RDMA_WRITE)
                     { //判断write请求完成
-                        LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id;
-                        LOG_EVERY_N(INFO, 1) << "Client write " << wcs[index].imm_data << " finished";
+                        LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id << ", imm = " << wcs[index].imm_data;
                         uint32_t len = job_queue->pop();
                         write_large_block(len);
                     }
@@ -307,35 +305,6 @@ void *RDMAClient::poll_cq(void *_id)
     }
     // DictXiong: will come here?
     std::cout << "Wow! I'm realy here RDMAClient.cpp:303";
-    while (1)
-    {
-        TEST_NZ(ibv_get_cq_event(ctx->comp_channel, &cq, &ev_ctx));
-        ibv_ack_cq_events(cq, 1);
-        TEST_NZ(ibv_req_notify_cq(cq, 0));
-        int nc = 0;
-
-        do
-        {
-            nc = ibv_poll_cq(cq, MAX_DATA_IN_FLIGHT * 2, wcs);
-            for (int index = 0; index < nc; index++)
-            {
-                if (wcs[index].status == IBV_WC_SUCCESS)
-                {
-                    if (wcs[index].opcode == IBV_WC_RDMA_WRITE)
-                    { //判断write请求完成
-                        //printf("IBV_WC_RDMA_WRITE, wr id: %lu\n", wcs[index].wr_id);
-                    }
-
-                    on_completion(&wcs[index]);
-                }
-                else
-                {
-                    rc_die("poll_cq: status is not IBV_WC_SUCCESS");
-                }
-            }
-
-        } while (nc > 0);
-    }
     return NULL;
 }
 
@@ -428,8 +397,7 @@ void RDMAClient::write_large_block(uint32_t len)
     struct ibv_sge sge;
     memset(&wr, 0, sizeof(wr));
 
-    // wr.wr_id = buffer_id; //before
-    wr.wr_id = 12345;
+    wr.wr_id = WR_WRITE_LARGE_BLOCK;
     wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
     wr.send_flags = IBV_SEND_SIGNALED;
     wr.imm_data = len;
@@ -449,51 +417,7 @@ void RDMAClient::write_large_block(uint32_t len)
 
         sge.addr = (uintptr_t)ctx->buffer;
         sge.length = len;
-        sge.lkey = ctx->buffer_mr->lkey;
-    }
-
-    TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
-}
-
-void RDMAClient::write_remote(uint32_t buffer_id,
-                              uint32_t window_id,
-                              uint32_t len)
-{
-    struct rdma_cm_id *id = ctx->id;
-
-    struct ibv_send_wr wr, *bad_wr = NULL;
-    struct ibv_sge sge;
-
-    memset(&wr, 0, sizeof(wr));
-
-    uint32_t imm_data_prepared = buffer_id << 24;
-    imm_data_prepared &= 0XFF000000;
-    imm_data_prepared += len;
-    imm_data_prepared += ((window_id << 16) & 0X00FF0000);
-
-#ifdef DEBUG_REVERSE_ORDER
-    LOG_INFO("RDMAWrite: buffer_id:%u, window_id:%u, data size: %u\n",
-             buffer_id, window_id, len);
-#endif
-
-    // wr.wr_id = buffer_id; //before
-    wr.wr_id = 12345;
-    wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
-    wr.send_flags = IBV_SEND_SIGNALED;
-    wr.imm_data = htonl(imm_data_prepared);
-
-    int base_addr = buffer_id * BUFFER_SIZE + window_id * BUFFER_SIZE * MAX_DATA_IN_FLIGHT;
-
-    wr.wr.rdma.remote_addr = ctx->peer_addr + base_addr;
-    wr.wr.rdma.rkey = ctx->peer_rkey;
-
-    if (len)
-    {
-        wr.sg_list = &sge;
-        wr.num_sge = 1;
-
-        sge.addr = (uintptr_t)ctx->buffer + base_addr;
-        sge.length = len;
+        std::cout << "len = " << len << std::endl;
         sge.lkey = ctx->buffer_mr->lkey;
     }
 
@@ -508,7 +432,7 @@ void RDMAClient::send_next_chunk(uint32_t buffer_id, uint32_t window_id)
     if (size == -1)
         rc_die("read() failed\n");
 
-    std::cout << "F*ck. Who called me?";
+    std::cout << "F**k. Who called me?";
     //write_remote(buffer_id, window_id, size);
 }
 

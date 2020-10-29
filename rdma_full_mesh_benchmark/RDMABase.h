@@ -34,6 +34,11 @@ enum message_id
     MSG_DONE
 };
 
+enum work_request_id
+{
+    WR_WRITE_LARGE_BLOCK = 1248;
+};
+
 struct message
 {
     int id;
