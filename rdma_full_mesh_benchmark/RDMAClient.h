@@ -13,7 +13,6 @@ public:
 
     void setup();
     void start_service();
-    void send_imm(struct rdma_cm_id *id, uint32_t imm_data = IMM_TEST);
 
 protected:
     virtual void *poll_cq(void *_id);
@@ -31,6 +30,7 @@ private:
     void send_next_chunk(uint32_t buffer_id, uint32_t window_id);
     void send_file_name(struct rdma_cm_id *id);
     void write_large_block(uint32_t len);
+    void send_imm(uint32_t imm_data = IMM_TEST);
     void poll_job_queue();
 
     
