@@ -48,6 +48,7 @@ enum imm_id
     NO_IMM = 1500,
     IMM_TEST,
     IMM_MR,
+    IMM_SHOW_CONNECTION_INFO,
 };
 
 struct comm_job

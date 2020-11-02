@@ -30,7 +30,7 @@ private:
                       uint32_t len);
     void send_next_chunk(uint32_t buffer_id, uint32_t window_id);
     void send_file_name(struct rdma_cm_id *id);
-    void write_large_block(uint32_t len);
+    void write_large_block(uint32_t len, uint32_t imm_data = NO_IMM);
     void send_imm(uint32_t imm_data = IMM_TEST);
     void poll_job_queue();
 

@@ -291,13 +291,13 @@ void *RDMAServer::poll_cq(void *_id)
                     {
                         //add_performance(wcs[index].imm_data);
                         LOG_EVERY_N(INFO, 1) << "Receive msg: " << wcs[index].imm_data;
-                        if (wcs[index].imm_data == 23)
+                        if (wcs[index].imm_data == IMM_SHOW_CONNECTION_INFO)
                         {
                             ctx->buffer[23] = 0;
                             printf("Connection info: %s\n", ctx->buffer + 1);
                         }
                         post_receive(id);
-                        on_imm_recv(&wcs[index]);
+                        if (wcs[index].imm_data != NO_IMM) on_imm_recv(&wcs[index]);
                     }
                     else
                     {

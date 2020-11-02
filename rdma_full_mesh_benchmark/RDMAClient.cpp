@@ -281,7 +281,7 @@ void *RDMAClient::poll_cq(void *_id)
                             printf("Server is ready to send\n");
                             send_file_name(id);
                         }
-                        on_imm_recv(&wcs[index]);
+                        if (wcs[index].imm_data != NO_IMM) on_imm_recv(&wcs[index]);
 
                         /* DictXiong: we won't response to this any more. WE decide when to send.
                         else if (wcs[index].imm_data == 888)
@@ -406,7 +406,7 @@ void RDMAClient::post_receive(uint32_t msg_id)
     TEST_NZ(ibv_post_recv(id->qp, &wr, &bad_wr));
 }
 
-void RDMAClient::write_large_block(uint32_t len)
+void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
 {
     std::cout << "Client write " << len << " to remote, opcode " << IBV_WR_RDMA_WRITE_WITH_IMM <<"\n";
     struct rdma_cm_id *id = ctx->id;
@@ -418,7 +418,7 @@ void RDMAClient::write_large_block(uint32_t len)
     wr.wr_id = WR_WRITE_LARGE_BLOCK;
     wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
     wr.send_flags = IBV_SEND_SIGNALED;
-    wr.imm_data = len;
+    wr.imm_data = imm_data;
 
     if (len >= WINDOWS_NUM * BUFFER_SIZE * MAX_DATA_IN_FLIGHT)
     {
@@ -482,7 +482,7 @@ void RDMAClient::send_file_name(struct rdma_cm_id *id)
     ctx->buffer[0] = 0;
     ctx->buffer[this->ip_addr_.length() + 1] = 0;
     // DictXiong: 23 似乎是个魔数
-    write_large_block(23);
+    write_large_block(23, IMM_SHOW_CONNECTION_INFO);
 }
 // DictXiong: 似乎也不会被调用? 
 void RDMAClient::on_completion(struct ibv_wc *wc)
