@@ -449,21 +449,29 @@ void RDMAClient::write_large_block(uint32_t len)
 void RDMAClient::send_imm(uint32_t imm_data)
 {
     struct rdma_cm_id *id = ctx->id;
+
     struct ibv_send_wr wr, *bad_wr = NULL;
     struct ibv_sge sge;
-
     memset(&wr, 0, sizeof(wr));
 
-    wr.wr_id = WR_SEND_ONLY_IMM; 
-    wr.opcode = IBV_WR_SEND_WITH_IMM;
-    wr.imm_data = imm_data;
-    wr.sg_list = &sge;
-    wr.num_sge = 1;
+    wr.wr_id = WR_WRITE_ONLY_IMM;
+    wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
     wr.send_flags = IBV_SEND_SIGNALED;
+    wr.imm_data = imm_data;
 
-    sge.addr = (uintptr_t)&ctx->msg[1];
-    sge.length = sizeof(struct message);
-    sge.lkey = ctx->msg_mr->lkey;
+    wr.wr.rdma.remote_addr = ctx->peer_addr;
+    wr.wr.rdma.rkey = ctx->peer_rkey;
+
+    if (0)
+    {
+        wr.sg_list = &sge;
+        wr.num_sge = 1;
+
+        sge.addr = (uintptr_t)ctx->buffer;
+        sge.length = len;
+        std::cout << "len = " << len << std::endl;
+        sge.lkey = ctx->buffer_mr->lkey;
+    }
 
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }

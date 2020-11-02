@@ -40,6 +40,7 @@ enum work_request_id
 {
     WR_WRITE_LARGE_BLOCK = 1248,
     WR_SEND_ONLY_IMM,
+    WR_WRITE_ONLY_IMM
 };
 
 enum imm_id

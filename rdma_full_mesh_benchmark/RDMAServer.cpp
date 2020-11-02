@@ -292,7 +292,6 @@ void *RDMAServer::poll_cq(void *_id)
                         }
                         post_receive(id);
                         on_imm_recv(&wcs[index]);
-                        // DictXiong: 似乎也不用发 MSG_READY 回去.
                     }
                     else
                     {
