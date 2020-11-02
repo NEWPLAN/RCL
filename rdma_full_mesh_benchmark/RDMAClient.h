@@ -13,7 +13,7 @@ public:
 
     void setup();
     void start_service();
-    void set_when_write_finished(std::function<void()> *f) {todo_when_write_finished = f;}
+    void set_when_write_finished(std::function<void()> f) {todo_when_write_finished = f;}
 
 protected:
     virtual void *poll_cq(void *_id);
