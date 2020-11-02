@@ -88,6 +88,7 @@ void client_functions(std::vector<std::string> ip)
         for (auto i : job_queues)
         {
             i->push(comm_job(comm_job::WRITE, 536870908));
+            i->push(comm_job(comm_job::SEND_IMM, IMM_TEST));
         }
     while (1)
     {
