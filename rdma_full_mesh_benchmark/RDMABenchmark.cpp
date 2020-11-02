@@ -48,6 +48,9 @@ void server_functions(std::vector<std::string> ip)
 {
     RDMAServer *rserver;
     rserver = new RDMAServer("0.0.0.0");
+    rserver->bind_recv_imm(IMM_TEST, [](ibv_wc *wc){
+        std::cout << "芜湖! 服务端起飞! \n";
+    });
     new std::thread([rserver](){
         rserver->setup();
     });
@@ -78,7 +81,7 @@ void client_functions(std::vector<std::string> ip)
             rclient = new RDMAClient(server_ip, local_ip, job_queues.back());
             // 测试 bind_recv_imm
             rclient->bind_recv_imm(IMM_TEST, [](ibv_wc* wc){
-                std::cout << "芜湖起飞芜湖起飞芜湖起飞芜湖起飞\n" ;
+                std::cout << "芜湖! 客户端起飞!\n" ;
             });
             rclient->setup();
         });

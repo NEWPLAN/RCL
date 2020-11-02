@@ -211,4 +211,9 @@ void RDMABase::on_imm_recv(struct ibv_wc *wc)
     {
         (pos->second)(wc);
     }
+    else
+    {
+        LOG_EVERY_N(INFO, 1) << "Unknown imm: " << wc->imm_data;
+    }
+    
 }

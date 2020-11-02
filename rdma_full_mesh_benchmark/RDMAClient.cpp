@@ -462,17 +462,6 @@ void RDMAClient::send_imm(uint32_t imm_data)
     wr.wr.rdma.remote_addr = ctx->peer_addr;
     wr.wr.rdma.rkey = ctx->peer_rkey;
 
-    if (0)
-    {
-        wr.sg_list = &sge;
-        wr.num_sge = 1;
-
-        sge.addr = (uintptr_t)ctx->buffer;
-        sge.length = len;
-        std::cout << "len = " << len << std::endl;
-        sge.lkey = ctx->buffer_mr->lkey;
-    }
-
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
 
