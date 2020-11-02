@@ -217,3 +217,7 @@ void RDMABase::on_imm_recv(struct ibv_wc *wc)
     }
     
 }
+void RDMABase::set_tos(uint8_t t)
+{
+    tos = t;
+}

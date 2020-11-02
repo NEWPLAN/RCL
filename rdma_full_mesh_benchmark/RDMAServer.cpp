@@ -68,6 +68,12 @@ void RDMAServer::server_event_loops()
             build_connection(event_copy.id);
             on_pre_conn(event_copy.id);
             //add qos here
+            if (rdma_set_option(event_copy.id, RDMA_OPTION_ID, RDMA_OPTION_ID_TOS, &tos, sizeof(uint8_t)))
+            {
+                std::cout << "Failed to set ToS(Type of Service) option for RDMA CM connection." << std::endl;
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                exit(0);
+            }
             TEST_NZ(rdma_accept(event_copy.id, &cm_params));
             break;
         }

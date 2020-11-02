@@ -222,6 +222,8 @@ protected:
     virtual void rc_die(const char *reason);
     virtual void log_info(const char *format, ...);
 
+    virtual void set_tos(uint8_t t);
+
 
 public:
     virtual struct ibv_pd *rc_get_pd(struct rdma_cm_id *id);
@@ -232,6 +234,9 @@ private:
     size_t recv_count_ = 0;
     // 消息绑定. 在 poll_cq 里面, 对于所有接收到的数据, 其 imm_data 对应要执行的操作. RDMABase 负责收集和存储, 并提供 wc 处理函数. C/S 应当在知道数据有 imm 时调用. 
     std::map<uint32_t, std::function<void(ibv_wc*)> > recv_imm_binding;
+    // traffic class configuration
+    // https://blog.csdn.net/sunshuying1010/article/details/103661289
+    uint8_t tos = 0;
 };
 
 #endif
