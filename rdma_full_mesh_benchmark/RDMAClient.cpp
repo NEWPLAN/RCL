@@ -401,7 +401,7 @@ void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
     struct ibv_sge sge;
     memset(&wr, 0, sizeof(wr));
 
-    if (imm_data != NO_IMM) wr.wr_id = WR_WRITE_ONLY_IMM;
+    if (imm_data != NO_IMM) wr.wr_id = WR_WRITE_WITH_IMM;
     else wr.wr_id = WR_WRITE_LARGE_BLOCK;
     wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
     wr.send_flags = IBV_SEND_SIGNALED;
@@ -437,7 +437,7 @@ void RDMAClient::send_imm(uint32_t imm_data)
     struct ibv_sge sge;
     memset(&wr, 0, sizeof(wr));
 
-    wr.wr_id = WR_WRITE_ONLY_IMM;
+    wr.wr_id = WR_WRITE_WITH_IMM;
     wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
     wr.send_flags = IBV_SEND_SIGNALED;
     wr.imm_data = imm_data;
