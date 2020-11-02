@@ -594,6 +594,6 @@ void RDMAServer::broadcast_imm(uint32_t imm)
     LOG_EVERY_N(INFO, 1) << "Broadcast " << imm << " to " << job_queues.size() <<" clients";
     for (auto i : job_queues)
     {
-        i->push(imm);
+        i->push(comm_job(comm_job::SEND_IMM,imm));
     }
 }
