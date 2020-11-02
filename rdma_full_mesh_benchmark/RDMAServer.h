@@ -32,7 +32,7 @@ private:
     void on_completion(struct ibv_wc *wc);
     void process_message(struct RDMAContext *ctx, uint32_t token,
                          uint8_t *buf, uint32_t len);
-    void poll_job_queue(struct rdma_cm_id *id, BlockingQueue<uint32_t> *que);
+    void poll_job_queue(struct rdma_cm_id *id, BlockingQueue<comm_job> *que);
 
 private:
     void server_event_loops();
@@ -51,8 +51,8 @@ private:
     std::mutex mtx;
     std::condition_variable cv;
     bool ready = false;
-    // send 队列, 内含立即数的值 imm_id
-    std::vector< BlockingQueue<uint32_t>* > job_queues;
+    // 应当只用于 send imm
+    std::vector< BlockingQueue<comm_job>* > job_queues;
 };
 
 #endif

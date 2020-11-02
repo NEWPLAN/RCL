@@ -8,11 +8,12 @@ class RDMAClient : public RDMABase
 {
 public:
     RDMAClient(RDMAAdapter &rdma_adapter);
-    RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<uint32_t> *q);
+    RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<comm_job> *q);
     ~RDMAClient();
 
     void setup();
     void start_service();
+    void send_imm(struct rdma_cm_id *id, uint32_t imm_data = IMM_TEST);
 
 protected:
     virtual void *poll_cq(void *_id);
@@ -45,8 +46,8 @@ private:
     struct sockaddr_in ser_in, local_in; /*server ip and local ip*/
 
     struct RDMAContext *ctx = 0;
-    // write 队列, 内含要 write 的数据块大小
-    BlockingQueue<uint32_t> *job_queue;
+    // 用于 write, 以及 send imm
+    BlockingQueue<comm_job> *job_queue;
 };
 
 #endif

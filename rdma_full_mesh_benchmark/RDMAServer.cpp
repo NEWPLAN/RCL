@@ -333,7 +333,7 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
     new std::thread([this, id]() {
         this->poll_cq((void *)id);
     });
-    auto que = new BlockingQueue<uint32_t>;
+    auto que = new BlockingQueue<comm_job>;
     job_queues.push_back(que);
     new std::thread([this, id, que]() {
         this->poll_job_queue(id, que);
@@ -341,13 +341,20 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
 }
 
 // 对于每一个 Client, 发送消息.
-void RDMAServer::poll_job_queue(struct rdma_cm_id *id, BlockingQueue<uint32_t> *que)
+void RDMAServer::poll_job_queue(struct rdma_cm_id *id, BlockingQueue<comm_job> *que)
 {
     while (true)
     {
-        uint32_t imm = que->pop();
-        LOG_EVERY_N(INFO, 1) << "Send " << imm << " to client " << ((struct RDMAContext *)(id->context))->client_index;
-        send_imm(id, imm);
+        auto job = que->pop();
+        if (job.type == comm_job::SEND_IMM)
+        {
+            LOG_EVERY_N(INFO, 1) << "Send " << job.data << " to client " << ((struct RDMAContext *)(id->context))->client_index;
+            send_imm(id, job.data);
+        }
+        else
+        {
+            rc_die("Unknown job type");
+        }
     }
     
 }

@@ -49,6 +49,16 @@ enum imm_id
     IMM_MR,
 };
 
+struct comm_job
+{
+    enum _type
+    {
+        WRITE, SEND_IMM
+    } type;
+    uint32_t data;
+    comm_job(const _type &t, const uint32_t &d): type(t), data(d){}
+};
+
 struct message
 {
     int id;

@@ -24,7 +24,7 @@ RDMAClient::RDMAClient(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     std::cout << "Creating RDMAClient" << std::endl;
 }
-RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<uint32_t> *q)
+RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<comm_job> *q)
 {
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_client_ip(client_ip.c_str());
@@ -316,8 +316,15 @@ void RDMAClient::poll_job_queue()
 {
     while (true)
     {
-        uint32_t len = job_queue->pop();
-        write_large_block(len);
+        auto job = job_queue->pop();
+        if (job.type == comm_job::WRITE)
+            write_large_block(job.data);
+        else if (job.type == comm_job::SEND_IMM)
+            send_imm(job.data);
+        else
+        {
+            rc_die("Unknown job type");
+        }
     }
     
 }
@@ -435,6 +442,28 @@ void RDMAClient::write_large_block(uint32_t len)
         std::cout << "len = " << len << std::endl;
         sge.lkey = ctx->buffer_mr->lkey;
     }
+
+    TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
+}
+
+void RDMAClient::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
+{
+    struct RDMAContext *ctx = (struct RDMAContext *)id->context;
+    struct ibv_send_wr wr, *bad_wr = NULL;
+    struct ibv_sge sge;
+
+    memset(&wr, 0, sizeof(wr));
+
+    wr.wr_id = WR_SEND_ONLY_IMM; 
+    wr.opcode = IBV_WR_SEND_WITH_IMM;
+    wr.imm_data = imm_data;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+    wr.send_flags = IBV_SEND_SIGNALED;
+
+    sge.addr = (uintptr_t)&ctx->msg[1];
+    sge.length = sizeof(struct message);
+    sge.lkey = ctx->msg_mr->lkey;
 
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
