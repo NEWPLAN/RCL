@@ -83,6 +83,9 @@ void client_functions(std::vector<std::string> ip)
             rclient->bind_recv_imm(IMM_TEST, [](ibv_wc* wc){
                 std::cout << "芜湖! 客户端起飞!\n" ;
             });
+            rclient->set_when_write_finished([](){
+                std::cout << "老子发完了! \n";
+            });
             rclient->setup();
         });
     }
