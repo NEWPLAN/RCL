@@ -240,8 +240,8 @@ void RDMAServer::sync_thread_func()
 void *RDMAServer::poll_cq(void *_id)
 {
     struct ibv_cq *cq = NULL;
-    //struct ibv_wc wc;
-    struct ibv_wc wcs[MAX_DATA_IN_FLIGHT * 2];
+    struct ibv_wc wc;
+    //struct ibv_wc wcs[MAX_DATA_IN_FLIGHT * 2];
     struct rdma_cm_id *id = (rdma_cm_id *)_id;
 
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
@@ -264,14 +264,13 @@ void *RDMAServer::poll_cq(void *_id)
     void *ev_ctx = NULL;
 
     {
-        TEST_NZ(ibv_get_cq_event(ctx->comp_channel,
-                                 &cq, &ev_ctx));
+        TEST_NZ(ibv_get_cq_event(ctx->comp_channel, &cq, &ev_ctx));
         ibv_ack_cq_events(cq, 1);
         TEST_NZ(ibv_req_notify_cq(cq, 0));
 
         while (true)
         {
-            int nc = ibv_poll_cq(cq, MAX_DATA_IN_FLIGHT * 2, wcs);
+            int nc = ibv_poll_cq(cq, 1, &wc);
             if (nc < 0)
             {
                 LOG(FATAL) << "Error of poll cq: with entries: " << nc;
@@ -279,35 +278,31 @@ void *RDMAServer::poll_cq(void *_id)
             if (nc == 0)
                 continue;
 
-            for (int index = 0; index < nc; index++)
+            if (wc.status == IBV_WC_SUCCESS)
             {
-                if (wcs[index].status == IBV_WC_SUCCESS)
+                LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
+                if (wc.opcode == IBV_WC_SEND)
                 {
-                    LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wcs[index].wr_id << ", imm: " << wcs[index].imm_data << ", opcode: " << wcs[index].opcode;
-                    if (wcs[index].opcode == IBV_WC_SEND)
+                }
+                else if (wc.opcode == IBV_WC_RECV_RDMA_WITH_IMM)
+                {
+                    LOG_EVERY_N(INFO, 1) << "Receive msg: " << wc.imm_data;
+                    if (wc.imm_data == IMM_SHOW_CONNECTION_INFO)
                     {
+                        ctx->buffer[23] = 0;
+                        printf("Connection info: %s\n", ctx->buffer + 1);
                     }
-                    else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
-                    {
-                        //add_performance(wcs[index].imm_data);
-                        LOG_EVERY_N(INFO, 1) << "Receive msg: " << wcs[index].imm_data;
-                        if (wcs[index].imm_data == IMM_SHOW_CONNECTION_INFO)
-                        {
-                            ctx->buffer[23] = 0;
-                            printf("Connection info: %s\n", ctx->buffer + 1);
-                        }
-                        post_receive(id);
-                        if (wcs[index].imm_data != NO_IMM) on_imm_recv(&wcs[index]);
-                    }
-                    else
-                    {
-                        LOG(INFO) << "Unknown message";
-                    }
+                    post_receive(id);
+                    if (wc.imm_data != NO_IMM) on_imm_recv(&wc);
                 }
                 else
                 {
-                    rc_die("poll_cq: status is not IBV_WC_SUCCESS");
+                    LOG(INFO) << "Unknown message";
                 }
+            }
+            else
+            {
+                rc_die("poll_cq: status is not IBV_WC_SUCCESS");
             }
         }
     }

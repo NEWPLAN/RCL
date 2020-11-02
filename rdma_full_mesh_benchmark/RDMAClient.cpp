@@ -220,8 +220,8 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
 void *RDMAClient::poll_cq(void *_id)
 {
     struct ibv_cq *cq = NULL;
-    //struct ibv_wc wc;
-    struct ibv_wc wcs[MAX_DATA_IN_FLIGHT * 2];
+    struct ibv_wc wc;
+    //struct ibv_wc wcs[MAX_DATA_IN_FLIGHT * 2];
 
     struct rdma_cm_id *id = (rdma_cm_id *)_id;
 
@@ -237,7 +237,7 @@ void *RDMAClient::poll_cq(void *_id)
     while (true)
     {
         // DictXiong: 现在理论上每次只有一个 cqe.
-        int ne = ibv_poll_cq(cq, MAX_DATA_IN_FLIGHT * 2, wcs);
+        int ne = ibv_poll_cq(cq, 1, &wc);
         if (ne < 0)
         {
             LOG(FATAL) << "Fail to poll CQ with entries: " << ne;
@@ -248,57 +248,43 @@ void *RDMAClient::poll_cq(void *_id)
         }
         else
         {
-            for (int index = 0; index < ne; index++)
+            if (wc.status == IBV_WC_SUCCESS)
             {
-                if (wcs[index].status == IBV_WC_SUCCESS)
-                {
-                    LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wcs[index].wr_id << ", imm: " << wcs[index].imm_data << ", opcode: " << wcs[index].opcode;
-                    if (wcs[index].opcode == IBV_WC_RDMA_WRITE)
-                    { //判断write请求完成
-                        LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wcs[index].wr_id << ", imm = " << wcs[index].imm_data;
-                        if (wcs[index].wr_id == WR_WRITE_LARGE_BLOCK) todo_when_write_finished();
-                    }
-                    // DictXiong: 接收到来自服务端的消息
-                    else if (wcs[index].opcode == IBV_WC_RECV_RDMA_WITH_IMM)
-                    {
-                        post_receive(1);
-                        LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV_RDMA_WITH_IMM, wr id: " << wcs[index].wr_id;
-                    }
-                    else if (wcs[index].opcode == IBV_WC_RECV)
-                    {
-                        LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV, wr id: " << wcs[index].wr_id
-                                                  << " imm_data: " << wcs[index].imm_data;
-                        post_receive(1);
-                        // 似乎即使带有立即数也会到 IBV_WC_RECV 条件分支中... 咱也不知道为啥
-                        // DictXiong: 这...666似乎是某些初始化? 魔数杀我
-                        if (wcs[index].imm_data == IMM_MR) 
-                        {
-                            uint32_t msg_id = wcs[index].wr_id;
-                            LOG(INFO) << "Sending to peer the local information";
-                            ctx->peer_addr = ctx->msg[msg_id].data.mr.addr;
-                            ctx->peer_rkey = ctx->msg[msg_id].data.mr.rkey;
-
-                            printf("Server is ready to send\n");
-                            send_file_name(id);
-                        }
-                        if (wcs[index].imm_data != NO_IMM) on_imm_recv(&wcs[index]);
-
-                        /* DictXiong: we won't response to this any more. WE decide when to send.
-                        else if (wcs[index].imm_data == 888)
-                        {
-                            LOG_EVERY_N(INFO, 10000) << "Write large buffer to peer";
-                            //1MB
-                            write_large_block(1024 * 1000);
-                        }
-                        */
-                    }
-
-                    //on_completion(&wcs[index]);
+                LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
+                if (wc.opcode == IBV_WC_RDMA_WRITE)
+                { //判断write请求完成
+                    LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wc.wr_id << ", imm = " << wc.imm_data;
+                    if (wc.wr_id == WR_WRITE_LARGE_BLOCK) todo_when_write_finished();
                 }
-                else
+                // DictXiong: 接收到来自服务端的消息
+                else if (wc.opcode == IBV_WC_RECV_RDMA_WITH_IMM)
                 {
-                    rc_die("poll_cq: status is not IBV_WC_SUCCESS");
+                    post_receive(1);
+                    LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV_RDMA_WITH_IMM, wr id: " << wc.wr_id;
                 }
+                else if (wc.opcode == IBV_WC_RECV)
+                {
+                    LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV, wr id: " << wc.wr_id
+                                                << " imm_data: " << wc.imm_data;
+                    post_receive(1);
+                    // 似乎即使带有立即数也会到 IBV_WC_RECV 条件分支中... 咱也不知道为啥
+                    // DictXiong: 这...666似乎是某些初始化? 魔数杀我
+                    if (wc.imm_data == IMM_MR) 
+                    {
+                        uint32_t msg_id = wc.wr_id;
+                        LOG(INFO) << "Sending to peer the local information";
+                        ctx->peer_addr = ctx->msg[msg_id].data.mr.addr;
+                        ctx->peer_rkey = ctx->msg[msg_id].data.mr.rkey;
+
+                        printf("Server is ready to send\n");
+                        send_file_name(id);
+                    }
+                    if (wc.imm_data != NO_IMM) on_imm_recv(&wc);
+                }
+            }
+            else
+            {
+                rc_die("poll_cq: status is not IBV_WC_SUCCESS");
             }
         }
     }
