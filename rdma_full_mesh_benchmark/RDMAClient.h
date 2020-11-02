@@ -49,7 +49,7 @@ private:
     struct RDMAContext *ctx = 0;
     // 用于 write, 以及 send imm
     BlockingQueue<comm_job> *job_queue;
-    std::function<void()> todo_when_write_finished = nullptr;
+    std::function<void()> todo_when_write_finished = [](){};
 };
 
 #endif
