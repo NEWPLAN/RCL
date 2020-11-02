@@ -434,7 +434,6 @@ void RDMAClient::send_imm(uint32_t imm_data)
     struct rdma_cm_id *id = ctx->id;
 
     struct ibv_send_wr wr, *bad_wr = NULL;
-    struct ibv_sge sge;
     memset(&wr, 0, sizeof(wr));
 
     wr.wr_id = WR_WRITE_WITH_IMM;
