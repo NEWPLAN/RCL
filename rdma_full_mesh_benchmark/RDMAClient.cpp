@@ -446,9 +446,9 @@ void RDMAClient::write_large_block(uint32_t len)
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
 
-void RDMAClient::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
+void RDMAClient::send_imm(uint32_t imm_data)
 {
-    struct RDMAContext *ctx = (struct RDMAContext *)id->context;
+    struct rdma_cm_id *id = ctx->id;
     struct ibv_send_wr wr, *bad_wr = NULL;
     struct ibv_sge sge;
 
