@@ -13,6 +13,7 @@ public:
 
     void setup();
     void start_service();
+    void set_when_write_finished(std::function<void()> *f) {todo_when_write_finished = f;}
 
 protected:
     virtual void *poll_cq(void *_id);
@@ -48,6 +49,7 @@ private:
     struct RDMAContext *ctx = 0;
     // 用于 write, 以及 send imm
     BlockingQueue<comm_job> *job_queue;
+    std::function<void()> *todo_when_write_finished = nullptr;
 };
 
 #endif

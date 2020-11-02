@@ -222,7 +222,7 @@ protected:
     virtual void rc_die(const char *reason);
     virtual void log_info(const char *format, ...);
 
-    virtual void set_tos(uint8_t t);
+    virtual void set_tos(uint8_t t) {tos = t;}
 
 
 public:
