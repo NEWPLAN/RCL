@@ -94,7 +94,7 @@ namespace newplan
         LOG(INFO) << "after connect";
     }
 
-    void RDMAServer::start_service(RDMASession *sess)
+    void RDMAServer::start_service_default(RDMASession *sess)
     {
         LOG(INFO) << "Server is starting the rdma service";
         bool validate_buf = false;
@@ -166,6 +166,84 @@ namespace newplan
             printf("Destroy IB resources\n");
             ctx->destroy_ctx();
         }
+    }
+
+    void RDMAServer::start_service(RDMASession *sess)
+    {
+        LOG(INFO) << "Server is starting the rdma service";
+
+        struct ibv_wc wc;
+        RDMAAdapter *ctx = sess->get_channel()->get_context();
+
+        // Get my data plane memory information
+        struct write_lat_mem *my_mem = (struct write_lat_mem *)ctx->ctx->ctrl_buf;
+        if (!ctx->init_data_mem(my_mem))
+        {
+            exit(-1);
+        }
+        ctx->print_mem(my_mem);
+
+        while (true)
+        {
+            // Post a receive request to receive the completion notification
+            if (!ctx->post_ctrl_recv())
+            {
+                exit(-1);
+            }
+            // Post a send request to send the memory information
+            if (!ctx->post_ctrl_send())
+            {
+                exit(-1);
+            }
+
+            int break_loops = false;
+            do
+            {
+                if (!ctx->wait_for_wc(&wc))
+                { //poll completion queue in a blocking approach
+                    fprintf(stderr, "Fail to get the completed send request\n");
+                    exit(-1);
+                }
+
+                if (wc.status != IBV_WC_SUCCESS)
+                {
+                    LOG(FATAL) << "Error of poll elements in work completion queue";
+                }
+
+                switch (wc.opcode)
+                {
+                case IBV_WC_SEND:
+                {
+                    LOG(INFO) << "Finished send request";
+                    break;
+                }
+                case IBV_WC_RECV:
+                {
+                    break_loops = true;
+                    LOG(INFO) << "Finished Recv request";
+                    break;
+                }
+                case IBV_WC_RDMA_WRITE:
+                {
+                    LOG(INFO) << "Finished write RDMA request";
+                    break;
+                }
+                case IBV_WC_RECV_RDMA_WITH_IMM:
+                {
+                    break_loops = true;
+                    LOG(INFO) << "Finished Recv RDMA wrtite with IMM request: "
+                              << ntohl(wc.imm_data);
+                    break;
+                }
+                default:
+                    LOG(INFO) << "Unknown opcode" << wc.opcode;
+                }
+
+            } while (!break_loops);
+        }
+
+        printf("Destroy IB resources\n");
+        ctx->destroy_ctx();
     }
 
 }; // namespace newplan

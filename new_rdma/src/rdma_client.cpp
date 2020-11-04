@@ -92,7 +92,7 @@ namespace newplan
         LOG(INFO) << "after connect";
     }
 
-    void RDMAClient::start_service(RDMASession *sess)
+    void RDMAClient::start_service_default(RDMASession *sess)
     {
         LOG(INFO) << "Starting service";
         RDMAAdapter *ctx = sess->get_channel()->get_context();
@@ -112,7 +112,7 @@ namespace newplan
             }
         }
 
-        {
+        { // server send a message to client to init a flow
             if (!ctx->wait_for_wc(&wc) ||
                 !ctx->parse_recv_wc(&wc))
             {
@@ -230,4 +230,109 @@ namespace newplan
         }
     }
 
+    void RDMAClient::start_service(RDMASession *sess)
+    {
+        LOG(INFO) << "Starting service";
+        RDMAAdapter *ctx = sess->get_channel()->get_context();
+
+        bool use_event = false;
+        struct ibv_wc wc;
+
+        int first_epoch = true;
+        struct write_lat_mem *rem_mem = nullptr;
+
+        while (true)
+        {
+            // Wait for completion events.
+            // If we use busy polling, this step is skipped.
+            if (use_event)
+            {
+                struct ibv_cq *ev_cq;
+                void *ev_ctx;
+
+                if (ibv_get_cq_event(ctx->ctx->channel, &ev_cq, &ev_ctx))
+                {
+                    fprintf(stderr, "Fail to get cq_event\n");
+                    exit(-1);
+                }
+
+                if (ev_cq != ctx->ctx->cq)
+                {
+                    fprintf(stderr, "CQ event for unknown CQ %p\n", ev_cq);
+                    exit(-1);
+                }
+
+                ibv_ack_cq_events(ctx->ctx->cq, 1);
+
+                if (ibv_req_notify_cq(ctx->ctx->cq, 0))
+                {
+                    fprintf(stderr, "Cannot request CQ notification\n");
+                    exit(-1);
+                }
+            }
+
+            // Empty the completion queue
+            while (true)
+            {
+                if (!ctx->wait_for_wc(&wc))
+                { //poll completion queue in a blocking approach
+                    fprintf(stderr, "Fail to get the completed send request\n");
+                    exit(-1);
+                }
+
+                if (wc.status != IBV_WC_SUCCESS)
+                {
+                    LOG(FATAL) << "Error of poll elements in work completion queue";
+                }
+
+                switch (wc.opcode)
+                {
+                case IBV_WC_SEND:
+                {
+                    LOG(INFO) << "Finished send request";
+                    break;
+                }
+                case IBV_WC_RECV:
+                {
+                    LOG(INFO) << "Finished Recv request";
+
+                    if (!ctx->post_ctrl_recv())
+                    { // Post the receive request to receive memory information from the server
+                        LOG(FATAL) << "Fail to post the receive request";
+                    }
+                    if (first_epoch)
+                    { // server send a message to client to init a flow
+                        first_epoch = false;
+                        // Get remote data plane memory information
+                        rem_mem = (struct write_lat_mem *)ctx->ctx->ctrl_buf;
+                        ctx->print_mem(rem_mem);
+                    }
+                    // Trigger the next write request
+                    if (!ctx->post_data_write_with_imm(rem_mem, ctx->ctx->data_buf_size))
+                    {
+                        fprintf(stderr, "Could not post write\n");
+                        exit(-1);
+                    }
+                    break;
+                }
+                case IBV_WC_RDMA_WRITE:
+                {
+                    LOG(INFO) << "Finished write RDMA request";
+                    break;
+                }
+                case IBV_WC_RECV_RDMA_WITH_IMM:
+                {
+                    LOG(INFO) << "Finished Recv RDMA wrtite with IMM request: "
+                              << ntohl(wc.imm_data);
+                    break;
+                }
+                default:
+                    LOG(INFO) << "Unknown opcode" << wc.opcode;
+                }
+            }
+        }
+
+        printf("Destroy IB resources\n");
+        ctx->destroy_ctx();
+    }
 }; // namespace newplan

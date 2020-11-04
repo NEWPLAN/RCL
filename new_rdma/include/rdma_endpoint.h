@@ -37,6 +37,8 @@ namespace newplan
 
         virtual void start_service(RDMASession *sess) = 0;
 
+        virtual void start_service_default(RDMASession *sess) = 0;
+
     public:
         void store_session(RDMASession *new_sees)
         {
@@ -105,6 +107,7 @@ namespace newplan
         virtual void after_connect() override;
 
         virtual void start_service(RDMASession *sess) override;
+        virtual void start_service_default(RDMASession *sess) override;
 
     private:
         std::string server_ip_;
@@ -132,6 +135,7 @@ namespace newplan
         virtual void after_connect() override;
 
         virtual void start_service(RDMASession *sess) override;
+        virtual void start_service_default(RDMASession *sess) override;
 
     private:
         PreConnector *pre_connecting();

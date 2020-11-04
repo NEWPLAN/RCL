@@ -16,7 +16,7 @@
 
 #define DEFAULT_IB_PORT 1
 
-#define DEFAULT_MSG_SIZE 6400000
+#define DEFAULT_MSG_SIZE 64000000
 
 #define DEFAULT_CTRL_BUF_SIZE 16
 
@@ -120,7 +120,6 @@ public:
     // Get the index of GID whose type is RoCE V2
     int get_rocev2_gid_index();
 
-    
     // Initialize destination information
     bool init_dest(struct write_lat_dest *dest);
 
