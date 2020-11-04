@@ -3,6 +3,7 @@
 #include "RDMAServer.h"
 #include "RDMAClient.h"
 #include "NetUtil.hpp"
+#include "timer.h"
 
 void help(void)
 {
@@ -48,12 +49,13 @@ void server_functions(std::vector<std::string> ip)
 {
     RDMAServer *rserver;
     rserver = new RDMAServer("0.0.0.0");
-    auto t = std::chrono::high_resolution_clock::now();
+    newplan::Timer t;
     rserver->bind_recv_imm(IMM_TEST, [](ibv_wc *wc){
         std::cout << "芜湖! 服务端起飞! \n";
     });
     rserver->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&t](ibv_wc *wc){
-        std::cout << "Time used: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
+        t.Stop();
+        std::cout << "Time used: " << t.MilliSeconds() << std::endl;
     });
     new std::thread([rserver](){
         rserver->setup();
@@ -63,7 +65,7 @@ void server_functions(std::vector<std::string> ip)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
         rserver->broadcast_imm(IMM_CLIENT_WRITE_START);
-        t = std::chrono::high_resolution_clock::now();
+        t.Start();
     }
 }
 
@@ -84,7 +86,7 @@ void client_functions(std::vector<std::string> ip)
         std::cout << "Connecting to: " << server_ip << std::endl;
         new std::thread([server_ip, local_ip, job_queue]() {
             RDMAClient *rclient;
-            auto t = std::chrono::high_resolution_clock::now();
+            newplan::Timer t;
             rclient = new RDMAClient(server_ip, local_ip, job_queue);
             // 测试 bind_recv_imm
             rclient->bind_recv_imm(IMM_TEST, [job_queue](ibv_wc* wc){
@@ -92,11 +94,12 @@ void client_functions(std::vector<std::string> ip)
             });
             rclient->bind_recv_imm(IMM_CLIENT_WRITE_START, [job_queue, &t](ibv_wc* wc){
                 job_queue -> push(comm_job(comm_job::WRITE, 536870908));
-                t = std::chrono::high_resolution_clock::now();
+                t.Start();
             });
             rclient->set_when_write_finished([job_queue, &t](){
                 job_queue -> push(comm_job(comm_job::SEND_IMM, IMM_CLIENT_SEND_DONE));
-                std::cout << "(Client) Time used: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
+                t.Stop();
+                std::cout << "(Client) Time used: " << t.MilliSeconds() << std::endl;
                 std::cout << "客户端发完了! \n";
             });
             rclient->setup();

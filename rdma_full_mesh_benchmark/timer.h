@@ -2,7 +2,9 @@
 #define __NEWPLAN_TIMER_H__
 #include <chrono>
 #include <iostream>
-#include <sys/time.h>
+
+namespace newplan
+{
 
 class Timer
 {
@@ -18,7 +20,7 @@ public:
     {
         if (!running())
         {
-            start_cpu_ = std::chrono::high_resolution_clock::now();
+            start_cpu_ = std::chrono::steady_clock::now();
             //gettimeofday(&t_start_, NULL);
             running_ = true;
             has_run_at_least_once_ = true;
@@ -28,7 +30,7 @@ public:
     {
         if (running())
         {
-            stop_cpu_ = std::chrono::high_resolution_clock::now();
+            stop_cpu_ = std::chrono::steady_clock::now();
             //gettimeofday(&t_stop_, NULL);
             running_ = false;
         }
@@ -112,8 +114,8 @@ protected:
     bool running_;
     bool has_run_at_least_once_;
 
-    std::chrono::high_resolution_clock::time_point start_cpu_;
-    std::chrono::high_resolution_clock::time_point stop_cpu_;
+    std::chrono::steady_clock::time_point start_cpu_;
+    std::chrono::steady_clock::time_point stop_cpu_;
     //struct timeval t_start_, t_stop_;
     uint64_t elapsed_milliseconds_;
     uint64_t elapsed_microseconds_;
@@ -121,4 +123,5 @@ protected:
     uint64_t elasped_seconds_;
 };
 
+} // namespace newplan
 #endif
