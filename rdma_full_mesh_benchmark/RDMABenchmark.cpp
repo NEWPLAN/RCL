@@ -69,7 +69,6 @@ void server_functions(std::vector<std::string> ip)
 
 void client_functions(std::vector<std::string> ip)
 {
-    auto t = std::chrono::high_resolution_clock::now();
     std::vector< BlockingQueue<comm_job>* > job_queues;
     if (ip.size() == 0)
     {
@@ -85,6 +84,7 @@ void client_functions(std::vector<std::string> ip)
         std::cout << "Connecting to: " << server_ip << std::endl;
         new std::thread([server_ip, local_ip, job_queue]() {
             RDMAClient *rclient;
+            auto t = std::chrono::high_resolution_clock::now();
             rclient = new RDMAClient(server_ip, local_ip, job_queue);
             // 测试 bind_recv_imm
             rclient->bind_recv_imm(IMM_TEST, [job_queue](ibv_wc* wc){
