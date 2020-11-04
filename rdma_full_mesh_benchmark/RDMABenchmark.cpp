@@ -136,9 +136,12 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     BlockingQueue<comm_job>* control_queue = new BlockingQueue<comm_job>;
     const int count_clients = ips.size() - 1;
     std::atomic<int> jobs_left; // 当前还没有完成发送的客户端
+    const uint8_t tos_data = 64;
+    const uint8_t tos_control = 128;
 
     // Create server
     RDMAServer *rserver = new RDMAServer("0.0.0.0");
+    rserver->set_tos(tos_data);
     new std::thread([rserver](){
         rserver->setup();
     });
@@ -152,6 +155,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
 
         std::cout << "Connecting to: " << i << std::endl;
         RDMAClient *rclient = new RDMAClient(i, local_ip, job_queue);
+        rclient->set_tos(tos_data);
         rclient->set_when_write_finished([&jobs_left](){
             jobs_left--;
             if (jobs_left == 0)
@@ -168,6 +172,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     //+master-control
     // build control_client
     RDMAClient* control_client = new RDMAClient(master_ip, local_ip, control_queue);
+    control_client->set_tos(tos_control);
     control_client->bind_recv_imm(IMM_CLIENT_WRITE_START, [&client_job_queues, &jobs_left, &count_clients](ibv_wc *wc){
         for (auto &i:client_job_queues)
         {
@@ -183,6 +188,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     {
         newplan::Timer() timer;
         RDMAServer* master = new RDMAServer("0.0.0.0");
+        master->set_tos(tos_control);
         master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, master](ibv_wc *wc){
             timer.Stop();
             std::cout << "(Master) Time: " << timer.MilliSeconds() << std::endl;
