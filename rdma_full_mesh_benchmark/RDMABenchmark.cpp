@@ -48,8 +48,12 @@ void server_functions(std::vector<std::string> ip)
 {
     RDMAServer *rserver;
     rserver = new RDMAServer("0.0.0.0");
+    auto t = std::chrono::high_resolution_clock::now();
     rserver->bind_recv_imm(IMM_TEST, [](ibv_wc *wc){
         std::cout << "芜湖! 服务端起飞! \n";
+    });
+    rserver->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&t](ibv_wc *wc){
+        std::cout << std::chrono::high_resolution_clock::now() - t;
     });
     new std::thread([rserver](){
         rserver->setup();
@@ -58,7 +62,8 @@ void server_functions(std::vector<std::string> ip)
     while (1)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
-        rserver->broadcast_imm(IMM_TEST);
+        rserver->broadcast_imm(IMM_CLIENT_WRITE_START);
+        t = std::chrono::high_resolution_clock::now();
     }
 }
 
@@ -83,9 +88,12 @@ void client_functions(std::vector<std::string> ip)
             // 测试 bind_recv_imm
             rclient->bind_recv_imm(IMM_TEST, [job_queue](ibv_wc* wc){
                 std::cout << "芜湖! 客户端起飞!\n" ;
-                job_queue -> push(comm_job(comm_job::WRITE, 114514));
             });
-            rclient->set_when_write_finished([](){
+            rclient->bind_recv_imm(IMM_CLIENT_WRITE_START, [job_queue](ibv_wc* wc){
+                job_queue -> push(comm_job(comm_job::WRITE, 536870908));
+            });
+            rclient->set_when_write_finished([job_queue](){
+                job_queue -> push(comm_job(comm_job::SEND_IMM, IMM_CLIENT_SEND_DONE));
                 std::cout << "客户端发完了! \n";
             });
             rclient->setup();
@@ -95,7 +103,6 @@ void client_functions(std::vector<std::string> ip)
     for (int j = 0; j != 1; j++)
         for (auto i : job_queues)
         {
-            i->push(comm_job(comm_job::WRITE, 536870908));
             i->push(comm_job(comm_job::SEND_IMM, IMM_TEST));
         }
     while (1)

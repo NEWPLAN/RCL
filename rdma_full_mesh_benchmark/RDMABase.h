@@ -49,6 +49,8 @@ enum imm_id
     IMM_TEST,
     IMM_MR,
     IMM_SHOW_CONNECTION_INFO,
+    IMM_CLIENT_WRITE_START,
+    IMM_CLIENT_SEND_DONE
 };
 
 struct comm_job

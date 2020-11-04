@@ -185,6 +185,7 @@ void *RDMAServer::poll_cq(void *_id)
                     post_receive(id);
                     if (wc.imm_data != NO_IMM) on_imm_recv(&wc);
                 }
+                else if (wcs[index].opcode == IBV_WC_SEND) {}
                 else
                 {
                     LOG(WARNING) << "Unknown message";
