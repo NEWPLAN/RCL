@@ -53,7 +53,7 @@ void server_functions(std::vector<std::string> ip)
         std::cout << "芜湖! 服务端起飞! \n";
     });
     rserver->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&t](ibv_wc *wc){
-        std::cout << std::chrono::high_resolution_clock::now() - t;
+        std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count();
     });
     new std::thread([rserver](){
         rserver->setup();
