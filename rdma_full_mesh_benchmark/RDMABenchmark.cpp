@@ -104,6 +104,8 @@ void client_functions(std::vector<std::string> ip)
 
 int main(int argc, char const *argv[])
 { //./main self-ip, remote ip
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging(argv[0]);
     if (argc < 2)
     {
         help();
