@@ -146,15 +146,6 @@ struct RDMAAdapter
     std::string get_server_ip() { return server_ip; }
 };
 
-#define LOG_INFO(format, ...)            \
-    do                                   \
-    {                                    \
-        printf("[%s:%4d] ",              \
-               __FILE__,                 \
-               __LINE__);                \
-        log_info(format, ##__VA_ARGS__); \
-    } while (0)
-
 #define TIMEOUT_IN_MS 500
 #define TEST_NZ(x)                                               \
     do                                                           \

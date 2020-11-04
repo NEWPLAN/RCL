@@ -122,9 +122,7 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
             build_connection(event_copy.id);
             if (rdma_set_option(event_copy.id, RDMA_OPTION_ID, RDMA_OPTION_ID_TOS, &tos, sizeof(uint8_t)))
             {
-                std::cout << "Failed to set ToS(Type of Service) option for RDMA CM connection." << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                exit(0);
+                LOG(FATAL) << "Failed to set ToS(Type of Service) option for RDMA CM connection.";
             }
 
             TEST_NZ(rdma_resolve_route(event_copy.id, TIMEOUT_IN_MS));
@@ -132,19 +130,17 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
         }
         case RDMA_CM_EVENT_ROUTE_RESOLVED:
         {
-            //LOG_INFO("In %s\n", "RDMA_CM_EVENT_ROUTE_RESOLVED");
+            //LOG(INFO) << ("In %s\n", "RDMA_CM_EVENT_ROUTE_RESOLVED");
             TEST_NZ(rdma_connect(event_copy.id, &cm_params));
             break;
         }
         case RDMA_CM_EVENT_CONNECT_REQUEST:
         {
-            printf("Error: client never request a connection\n");
-            exit(-1);
-            break;
+            LOG(FATAL) << "Error: client never request a connection";
         }
         case RDMA_CM_EVENT_ESTABLISHED:
         {
-            //LOG_INFO("In %s\n", "RDMA_CM_EVENT_ESTABLISHED");
+            //LOG(INFO) << ("In %s\n", "RDMA_CM_EVENT_ESTABLISHED");
             on_pre_conn(event_copy.id);
             this->send_thread = new std::thread([this, event_copy]() {
                 this->poll_cq((void *)(event_copy.id));
@@ -170,7 +166,7 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
         }
         case RDMA_CM_EVENT_REJECTED: // DictXiong: 什么时候会到这儿来?
         {
-            //LOG_INFO("In %s\n", "RDMA_CM_EVENT_REJECTED");
+            //LOG(INFO) << ("In %s\n", "RDMA_CM_EVENT_REJECTED");
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             connect_count++;
             struct RDMAContext *ctx_ = (struct RDMAContext *)(event_copy.id->context);
@@ -204,7 +200,7 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
-            LOG_INFO("In %s\n", "RDMA_CM_EVENT_DISCONNECTED");
+            LOG(INFO) << "In RDMA_CM_EVENT_DISCONNECTED";
             rdma_destroy_qp(event_copy.id);
             on_disconnect(event_copy.id);
             rdma_destroy_id(event_copy.id);
@@ -259,14 +255,14 @@ void *RDMAClient::poll_cq(void *_id)
                 else if (wc.opcode == IBV_WC_RECV_RDMA_WITH_IMM)
                 {
                     post_receive(1);
-                    LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV_RDMA_WITH_IMM, wr id: " << wc.wr_id;
+                    LOG_EVERY_N(INFO, 1) << "IBV_WC_RECV_RDMA_WITH_IMM, wr id: " << wc.wr_id;
                 }
+                // 似乎即使带有立即数也会到 IBV_WC_RECV 条件分支中... 咱也不知道为啥
                 else if (wc.opcode == IBV_WC_RECV)
                 {
-                    LOG_EVERY_N(INFO, 100000) << "IBV_WC_RECV, wr id: " << wc.wr_id
-                                                << " imm_data: " << wc.imm_data;
                     post_receive(1);
-                    // 似乎即使带有立即数也会到 IBV_WC_RECV 条件分支中... 咱也不知道为啥
+                    LOG_EVERY_N(INFO, 1) << "IBV_WC_RECV, wr id: " << wc.wr_id << " imm_data: " << wc.imm_data;
+                    
                     // DictXiong: 这...666似乎是某些初始化? 魔数杀我
                     if (wc.imm_data == IMM_MR) 
                     {
@@ -275,7 +271,7 @@ void *RDMAClient::poll_cq(void *_id)
                         ctx->peer_addr = ctx->msg[msg_id].data.mr.addr;
                         ctx->peer_rkey = ctx->msg[msg_id].data.mr.rkey;
 
-                        printf("Server is ready to send\n");
+                        LOG(INFO) << "Server is ready to send";
                         send_file_name(id);
                     }
                     if (wc.imm_data != NO_IMM) on_imm_recv(&wc);
@@ -283,12 +279,13 @@ void *RDMAClient::poll_cq(void *_id)
             }
             else
             {
+                LOG(ERROR) << "poll_cq: status is not IBV_WC_SUCCESS";
                 rc_die("poll_cq: status is not IBV_WC_SUCCESS");
             }
         }
     }
     // DictXiong: will come here?
-    std::cout << "Wow! I'm realy here RDMAClient.cpp:303";
+    LOG(ERROR) << "RDMAServer will never come here";
     return NULL;
 }
 
@@ -304,7 +301,7 @@ void RDMAClient::poll_job_queue()
             send_imm(job.data);
         else
         {
-            rc_die("Unknown job type");
+            LOG(FATAL) << "Unknown job type";
         }
     }
     
@@ -318,48 +315,35 @@ void RDMAClient::on_pre_conn(struct rdma_cm_id *id)
 
     ctx->id = id;
 
-    ret = posix_memalign((void **)&ctx->buffer,
-                         sysconf(_SC_PAGESIZE),
-                         register_buf_size);
+    ret = posix_memalign((void **)&ctx->buffer, sysconf(_SC_PAGESIZE), register_buf_size);
     if (ret)
     {
-        fprintf(stderr, "posix_memalign: %s\n",
-                strerror(ret));
+        fprintf(stderr, "posix_memalign: %s\n", strerror(ret));
         exit(-1);
     }
-    TEST_Z(ctx->buffer_mr = ibv_reg_mr(rc_get_pd(id),
-                                       ctx->buffer,
-                                       register_buf_size,
-                                       0));
+    TEST_Z(ctx->buffer_mr = ibv_reg_mr(rc_get_pd(id), ctx->buffer, register_buf_size, 0));
 
-    ret = posix_memalign((void **)&ctx->msg,
-                         sysconf(_SC_PAGESIZE),
-                         sizeof(struct message) * MAX_DATA_IN_FLIGHT);
+    ret = posix_memalign((void **)&ctx->msg, sysconf(_SC_PAGESIZE), sizeof(struct message) * MAX_DATA_IN_FLIGHT);
     if (ret)
     {
-        fprintf(stderr, "posix_memalign: %s\n",
-                strerror(ret));
+        fprintf(stderr, "posix_memalign: %s\n", strerror(ret));
         exit(-1);
     }
-    TEST_Z(ctx->msg_mr = ibv_reg_mr(rc_get_pd(id),
-                                    ctx->msg,
-                                    sizeof(struct message) * MAX_DATA_IN_FLIGHT,
-                                    IBV_ACCESS_LOCAL_WRITE));
+    TEST_Z(ctx->msg_mr = ibv_reg_mr(rc_get_pd(id),ctx->msg, sizeof(struct message) * MAX_DATA_IN_FLIGHT, IBV_ACCESS_LOCAL_WRITE));
 
     for (int msg_index = 0; msg_index < MAX_DATA_IN_FLIGHT; msg_index++)
     {
-        //post to recv queue and wait for data
         post_receive(msg_index);
     }
 
-    // LOG_INFO("Client register buffer:\nblock size: %d;\nblock number: %d;\nwindows num: %u;\nbase address: %p\n",
+    // LOG(INFO) << ("Client register buffer:\nblock size: %d;\nblock number: %d;\nwindows num: %u;\nbase address: %p\n",
     //          BUFFER_SIZE, MAX_DATA_IN_FLIGHT, WINDOWS_NUM, ctx->buffer);
 }
 
 void RDMAClient::on_disconnect(struct rdma_cm_id *id)
 {
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
-    LOG_INFO("Client is disconnecting now\n");
+    LOG(INFO) << ("Client is disconnecting now");
 
     ibv_dereg_mr(ctx->buffer_mr);
     free(ctx->buffer);
@@ -393,7 +377,7 @@ void RDMAClient::post_receive(uint32_t msg_id)
 
 void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
 {
-    std::cout << "Client write " << len << " to remote, opcode " << IBV_WR_RDMA_WRITE_WITH_IMM <<"\n";
+    LOG(INFO) << "Client write " << len << " to remote, opcode " << IBV_WR_RDMA_WRITE_WITH_IMM;
     struct rdma_cm_id *id = ctx->id;
 
     struct ibv_send_wr wr, *bad_wr = NULL;
@@ -430,6 +414,7 @@ void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
 
 void RDMAClient::send_imm(uint32_t imm_data)
 {
+    LOG(INFO) << "Client send imm " << imm_data << " to remote";
     struct rdma_cm_id *id = ctx->id;
 
     struct ibv_send_wr wr, *bad_wr = NULL;
@@ -446,18 +431,6 @@ void RDMAClient::send_imm(uint32_t imm_data)
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
 
-void RDMAClient::send_next_chunk(uint32_t buffer_id, uint32_t window_id)
-{
-    ssize_t size = 0;
-    size = BUFFER_SIZE;
-
-    if (size == -1)
-        rc_die("read() failed\n");
-
-    std::cout << "OMG. Who called me?";
-    //write_remote(buffer_id, window_id, size);
-}
-
 void RDMAClient::send_file_name(struct rdma_cm_id *id)
 {
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
@@ -469,6 +442,7 @@ void RDMAClient::send_file_name(struct rdma_cm_id *id)
     // DictXiong: 23 似乎是个魔数
     write_large_block(23, IMM_SHOW_CONNECTION_INFO);
 }
+
 /* DictXiong: 似乎也不会被调用? 
 void RDMAClient::on_completion(struct ibv_wc *wc)
 */

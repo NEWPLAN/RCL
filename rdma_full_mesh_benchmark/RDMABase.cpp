@@ -142,8 +142,7 @@ void RDMABase::build_qp_attr(struct rdma_cm_id *id,
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
     if (ctx == 0 || ctx == nullptr || ctx == NULL)
     {
-        LOG_INFO("Error of building QP_attr: %x\n", ctx);
-        exit(-1);
+        LOG(FATAL) << "Error of building QP_attr: " << ctx;
     }
     memset(qp_attr, 0, sizeof(*qp_attr));
 
