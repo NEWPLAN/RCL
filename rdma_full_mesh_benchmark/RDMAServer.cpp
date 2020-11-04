@@ -35,12 +35,7 @@ RDMAServer::~RDMAServer()
 // 阻塞. 
 void RDMAServer::setup()
 {
-    LOG(INFO) << ("Setup RDMAServer");
     this->_init();
-}
-void RDMAServer::start_service()
-{
-    LOG(INFO) << ("RDMA is starting service");
 }
 
 void RDMAServer::server_event_loops()
@@ -101,11 +96,12 @@ void RDMAServer::server_event_loops()
         std::this_thread::sleep_for(std::chrono::seconds(10));
     }
 
-    printf("RDMA recv loops exit now...\n");
+    LOG(INFO) << "RDMA recv loops exit now...";
     return;
 }
 void RDMAServer::_init()
 {
+    LOG(INFO) << "Initializing RDMAClient";
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;                              /*ipv4*/
@@ -115,13 +111,8 @@ void RDMAServer::_init()
     LOG(INFO) << "Listen port: " << this->rdma_adapter_.server_port;
 
     TEST_Z(this->rdma_adapter_.event_channel = rdma_create_event_channel());
-    TEST_NZ(rdma_create_id(this->rdma_adapter_.event_channel,
-                           &this->rdma_adapter_.listener,
-                           NULL, RDMA_PS_TCP));
-
-    TEST_NZ(rdma_bind_addr(this->rdma_adapter_.listener,
-                           (struct sockaddr *)&sin));
-
+    TEST_NZ(rdma_create_id(this->rdma_adapter_.event_channel, &this->rdma_adapter_.listener, NULL, RDMA_PS_TCP));
+    TEST_NZ(rdma_bind_addr(this->rdma_adapter_.listener, (struct sockaddr *)&sin));
     TEST_NZ(rdma_listen(this->rdma_adapter_.listener, 100));
 
     this->aggregator_thread = new std::thread([this]() { this->server_event_loops(); });
@@ -134,10 +125,7 @@ void RDMAServer::_init()
     }
 }
 
-inline void parse_from_imm_data(uint32_t imm_data,
-                                uint32_t *window_id,
-                                uint32_t *buffer_id,
-                                uint32_t *data_size)
+inline void parse_from_imm_data(uint32_t imm_data, uint32_t *window_id, uint32_t *buffer_id, uint32_t *data_size)
 {
     //***************************************
     //          immediate data:
@@ -272,18 +260,15 @@ void RDMAServer::on_pre_conn(struct rdma_cm_id *id)
     ret = posix_memalign((void **)&ctx->buffer, sysconf(_SC_PAGESIZE), register_buf_size);
     if (ret)
     {
-        fprintf(stderr, "posix_memalign: %s\n",
-                strerror(ret));
+        fprintf(stderr, "posix_memalign: %s\n", strerror(ret));
         exit(-1);
     }
     TEST_Z(ctx->buffer_mr = ibv_reg_mr(rc_get_pd(id), ctx->buffer, register_buf_size, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE));
 
-    ret = posix_memalign((void **)&ctx->msg, sysconf(_SC_PAGESIZE),
-                         sizeof(struct message) * MAX_DATA_IN_FLIGHT);
+    ret = posix_memalign((void **)&ctx->msg, sysconf(_SC_PAGESIZE), sizeof(struct message) * MAX_DATA_IN_FLIGHT);
     if (ret)
     {
-        fprintf(stderr, "posix_memalign: %s\n",
-                strerror(ret));
+        fprintf(stderr, "posix_memalign: %s\n", strerror(ret));
         exit(-1);
     }
     TEST_Z(ctx->msg_mr = ibv_reg_mr(rc_get_pd(id), ctx->msg, sizeof(struct message) * MAX_DATA_IN_FLIGHT, IBV_ACCESS_LOCAL_WRITE));

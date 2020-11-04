@@ -29,31 +29,21 @@ RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_i
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_client_ip(client_ip.c_str());
     this->job_queue = q;
-    std::cout << "Creating RDMAClient" << std::endl;
+    LOG(INFO) << "Creating RDMAClient";
 }
 RDMAClient::~RDMAClient()
 {
-    std::cout << "Destroying RDMAClient" << std::endl;
+    LOG(INFO) << "Destroying RDMAClient";
 }
 
 void RDMAClient::setup()
 {
-    std::cout << "Configure RDMAClient" << std::endl;
     this->_init();
-}
-void RDMAClient::start_service()
-{
-    std::cout << "RDMAClient starts service" << std::endl;
-}
-
-void RDMAClient::_send_loops()
-{
-    std::cout << "In RDMAClient send loops" << std::endl;
 }
 
 void RDMAClient::_init()
 {
-    std::cout << "Initing RDMAClient" << std::endl;
+    LOG(INFO) << "Initializing RDMAClient";
 
     struct rdma_cm_id *conn = NULL;
     struct rdma_event_channel *ec = NULL;
@@ -66,9 +56,7 @@ void RDMAClient::_init()
     /*bind remote socket*/
     ser_in.sin_family = AF_INET;
     ser_in.sin_port = htons(this->rdma_adapter_.server_port); /*connect to public port remote*/
-    inet_pton(AF_INET,
-              this->rdma_adapter_.server_ip.c_str(),
-              &ser_in.sin_addr);
+    inet_pton(AF_INET, this->rdma_adapter_.server_ip.c_str(), &ser_in.sin_addr);
 
     /*bind local part*/
     local_in.sin_family = AF_INET;
@@ -77,17 +65,14 @@ void RDMAClient::_init()
     inet_pton(AF_INET, local_eth.c_str(), &local_in.sin_addr);
 
     TEST_Z(ec = rdma_create_event_channel());
-    TEST_NZ(rdma_create_id(ec, &conn,
-                           NULL, RDMA_PS_TCP));
-    TEST_NZ(rdma_resolve_addr(conn,
-                              (struct sockaddr *)(&local_in),
-                              (struct sockaddr *)(&ser_in),
-                              TIMEOUT_IN_MS));
+    TEST_NZ(rdma_create_id(ec, &conn, NULL, RDMA_PS_TCP));
+    TEST_NZ(rdma_resolve_addr(conn, (struct sockaddr *)(&local_in), (struct sockaddr *)(&ser_in), TIMEOUT_IN_MS));
 
     conn->context = (void *)this->ctx;
 
     this->event_loop(ec);
     // DictXiong: 应该不会运行到这儿了? 
+    LOG(ERROR) << "RDMAServer will never come here";
     std::cout << "RDMAClient is launched" << std::endl;
     while (1)
     {
@@ -405,7 +390,6 @@ void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
 
         sge.addr = (uintptr_t)ctx->buffer;
         sge.length = len;
-        std::cout << "len = " << len << std::endl;
         sge.lkey = ctx->buffer_mr->lkey;
     }
 

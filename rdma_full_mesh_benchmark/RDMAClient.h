@@ -12,7 +12,6 @@ public:
     ~RDMAClient();
 
     void setup();
-    void start_service();
     void set_when_write_finished(std::function<void()> f) {todo_when_write_finished = f;}
 
 protected:
@@ -33,7 +32,6 @@ private:
 
     
 private:
-    void _send_loops();
     void _init();
 
 private:

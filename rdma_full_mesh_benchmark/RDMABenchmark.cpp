@@ -67,7 +67,7 @@ void client_functions(std::vector<std::string> ip)
     std::vector< BlockingQueue<comm_job>* > job_queues;
     if (ip.size() == 0)
     {
-        std::cout << "Error of local IP" << std::endl;
+        LOG(FATAL) << "Error of local IP";
     }
     std::string local_ip = ip[0];
     for (size_t i = 1; i < ip.size(); i++)

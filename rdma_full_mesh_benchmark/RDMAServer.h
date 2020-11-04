@@ -15,7 +15,6 @@ public:
     ~RDMAServer();
 
     void setup();
-    void start_service();
     void broadcast_imm(uint32_t imm);
 
 protected:
