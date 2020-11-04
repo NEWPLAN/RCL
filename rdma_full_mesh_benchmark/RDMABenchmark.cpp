@@ -69,6 +69,7 @@ void server_functions(std::vector<std::string> ip)
 
 void client_functions(std::vector<std::string> ip)
 {
+    auto t = std::chrono::high_resolution_clock::now();
     std::vector< BlockingQueue<comm_job>* > job_queues;
     if (ip.size() == 0)
     {
@@ -91,9 +92,11 @@ void client_functions(std::vector<std::string> ip)
             });
             rclient->bind_recv_imm(IMM_CLIENT_WRITE_START, [job_queue](ibv_wc* wc){
                 job_queue -> push(comm_job(comm_job::WRITE, 536870908));
+                t = std::chrono::high_resolution_clock::now();
             });
             rclient->set_when_write_finished([job_queue](){
                 job_queue -> push(comm_job(comm_job::SEND_IMM, IMM_CLIENT_SEND_DONE));
+                std::cout << "(Client) Time used: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
                 std::cout << "客户端发完了! \n";
             });
             rclient->setup();
