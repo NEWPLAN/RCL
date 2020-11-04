@@ -1,4 +1,5 @@
 #include <iostream>
+#include <atomic>
 #include "RDMABase.h"
 #include "RDMAServer.h"
 #include "RDMAClient.h"
@@ -114,6 +115,88 @@ void client_functions(std::vector<std::string> ip)
     while (1)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
+    }
+}
+
+/**
+ * 受 master 控制的数据发送
+ * @param ips 整个 cluster 的 ip, 包括自己
+ * @param master_ip master 的 ip
+ * @return 没有返回值
+ */
+void master_control(std::vector<std::string> ips, std::string master_ip)
+{
+    if (ips.empty() || master_ip.empty())
+    {
+        LOG(FATAL) << "Error ip parameters";
+    }
+
+    std::string local_ip = NetTool::get_ip("12.12.12.101", 24);
+    std::vector< BlockingQueue<comm_job>* > client_job_queues;
+    BlockingQueue<comm_job>* control_queue = new BlockingQueue<comm_job>;
+    const int count_clients = ips.size() - 1;
+    std::atomic<int> jobs_left; // 当前还没有完成发送的客户端
+
+    // Create server
+    RDMAServer *rserver = new RDMAServer("0.0.0.0");
+    new std::thread([rserver](){
+        rserver->setup();
+    });
+
+    // Create clients
+    for (const auto &i : ips)
+    {
+        if (i == local_ip) continue;
+        auto job_queue = new BlockingQueue<comm_job>;
+        client_job_queues.push_back(job_queue);
+
+        std::cout << "Connecting to: " << i << std::endl;
+        RDMAClient *rclient = new RDMAClient(i, local_ip, job_queue);
+        rclient->set_when_write_finished([&jobs_left](){
+            jobs_left--;
+            if (jobs_left == 0)
+            {
+                // 如果所有客户端都完成了发送, 那么由 control_client 向 master 发送消息
+                control_queue->push(comm_job(comm_job::SEND_IMM, IMM_CLIENT_SEND_DONE));
+            }
+        });
+        new std::thread([rclient](){
+            rclient->setup();
+        });
+    }
+
+    //+master-control
+    // build control_client
+    RDMAClient* control_client = new RDMAClient(master_ip, local_ip, control_queue);
+    control_client->bind_recv_imm(IMM_CLIENT_WRITE_START, [&client_job_queues, &jobs_left, &count_clients](ibv_wc *wc){
+        for (auto &i:client_job_queues)
+        {
+            i->push(comm_job(comm_job::WRITE, 536870908));
+        }
+        jobs_left = count_clients;
+    });
+    new std::thread([control_client](){
+        control_client->setup();
+    });
+    // master
+    if (master_ip == local_ip)
+    {
+        newplan::Timer() timer;
+        RDMAServer* master = new RDMAServer("0.0.0.0");
+        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, master](ibv_wc *wc){
+            timer.Stop();
+            std::cout << "(Master) Time: " << timer.MilliSeconds() << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            master->broadcast_imm(IMM_CLIENT_WRITE_START);
+            timer.Start();
+        });
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        master->broadcast_imm(IMM_CLIENT_WRITE_START);
+        timer.Start();
+    }
+    while(true)
+    {
+        std::this_thread::sleep_for(std::chrono::minutes(2));
     }
 }
 
