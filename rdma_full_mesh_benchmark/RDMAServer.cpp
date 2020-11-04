@@ -52,8 +52,7 @@ void RDMAServer::server_event_loops()
 
     build_params(&cm_params);
 
-    while (rdma_get_cm_event(this->rdma_adapter_.event_channel,
-                             &event) == 0)
+    while (rdma_get_cm_event(this->rdma_adapter_.event_channel, &event) == 0)
     {
         struct rdma_cm_event event_copy;
 
@@ -67,7 +66,7 @@ void RDMAServer::server_event_loops()
             LOG_INFO("Server: RDMA_CM_EVENT_CONNECT_REQUEST\n");
             build_connection(event_copy.id);
             on_pre_conn(event_copy.id);
-            //add qos here
+            // qos here
             if (rdma_set_option(event_copy.id, RDMA_OPTION_ID, RDMA_OPTION_ID_TOS, &tos, sizeof(uint8_t)))
             {
                 std::cout << "Failed to set ToS(Type of Service) option for RDMA CM connection." << std::endl;
@@ -250,16 +249,6 @@ void *RDMAServer::poll_cq(void *_id)
         LOG_INFO("Error in get ctx: %x, %s\n", ctx, __FUNCTION__);
         exit(-1);
     }
-
-    // ctx->ready_signal = COLLECTED_DATA;
-
-    // { //NEWPLAN is waiting here to synchronize the communication with peer
-    //     LOG(INFO) << "sub poll cq thread is waiting for main threads";
-    //     std::unique_lock<std::mutex> lck(mtx);
-    //     while (!ready)
-    //         cv.wait(lck); // 当前线程被阻塞, 当全局标志位变为 true 之后,
-    //     LOG(INFO) << "sub poll cq thread has been waked up...";
-    // }
 
     void *ev_ctx = NULL;
 
@@ -482,6 +471,7 @@ void RDMAServer::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
 
+/* DictXiong: 暂时不删, 作为参考
 void RDMAServer::process_message(struct RDMAContext *ctx, uint32_t token,
                                  uint8_t *buf, uint32_t len)
 {
@@ -521,73 +511,11 @@ void RDMAServer::process_message(struct RDMAContext *ctx, uint32_t token,
     //reset buffer.
     buf[0] = buf[len - 1] = 0;
 }
+*/
 
-// DictXiong: 应该不会调用这个
+/* DictXiong: 应该不会调用这个
 void RDMAServer::on_completion(struct ibv_wc *wc)
-{
-    struct rdma_cm_id *id = (struct rdma_cm_id *)(uintptr_t)wc->wr_id;
-    struct RDMAContext *ctx = (struct RDMAContext *)id->context;
-
-    if (wc->opcode == IBV_WC_RECV_RDMA_WITH_IMM)
-    {
-        uint32_t imm_data_recv = ntohl(wc->imm_data);
-        uint32_t size = imm_data_recv & 0XFFFFFF; // DictXiong: err... isn't 0xFFFF?
-        uint32_t buffer_id = (imm_data_recv >> 24) & 0xFF;
-        //uint32_t window_id = (imm_data_recv >> 16) & 0xFF;
-
-        if (buffer_id != ctx->buffer[buffer_id * BUFFER_SIZE] ||
-            buffer_id != ctx->buffer[buffer_id * BUFFER_SIZE + size - 1]) // DictXiong: ??? why not ctx->buffer[window_id * WINDOW_SIZE + buffer_id * BUFFER_SIZE + ...]
-        {
-            printf("Unknown error: Recv buffer id: %u, size: %u, data:[%d - %d]\n",
-                   buffer_id, size, ctx->buffer[buffer_id * BUFFER_SIZE],
-                   ctx->buffer[buffer_id * BUFFER_SIZE + size - 1]);
-            exit(-1);
-        }
-
-        if (size == 0)
-        {
-            ctx->msg[buffer_id].id = MSG_DONE;
-            send_message(id, buffer_id);
-        }
-        else
-        {
-            if (ctx->connection_id[0] == 0)
-            {
-                memcpy(ctx->connection_id, ctx->buffer + 1, size);
-                ctx->connection_id[size - 2] = 0;
-            }
-
-            ctx->recv_bytes += size;
-            if (ctx->recv_bytes > 10000000000)
-            {
-                struct timeval now;
-                gettimeofday(&now, NULL);
-                float time_cost = (now.tv_usec - ctx->start.tv_usec) / 1000000.0 + now.tv_sec - ctx->start.tv_sec;
-                ctx->start = now;
-
-                printf("[%s] Recv rate: %.2f Gbps\n",
-                       ctx->connection_id,
-                       8.0 * ctx->recv_bytes / 1000.0 / 1000.0 / 1000.0 / time_cost);
-
-                ctx->recv_bytes = 0;
-            }
-
-            {
-                this->add_performance(size);
-            }
-            int base_addr = buffer_id * BUFFER_SIZE;
-            ctx->buffer[base_addr] = ctx->buffer[base_addr + size - 1] = 0;
-            post_receive(id);
-
-            ctx->msg[buffer_id].id = MSG_READY;
-            ctx->msg[buffer_id].data.batch_index[0] = buffer_id;
-            {
-                ctx->msg[buffer_id].data.batch_index[MSG_NUM_OFFEST] = 1;
-            }
-            send_message(id, buffer_id);
-        }
-    }
-}
+*/
 
 void RDMAServer::broadcast_imm(uint32_t imm)
 {

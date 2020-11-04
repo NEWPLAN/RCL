@@ -127,8 +127,7 @@ void RDMAClient::event_loop(struct rdma_event_channel *ec)
                 exit(0);
             }
 
-            TEST_NZ(rdma_resolve_route(event_copy.id,
-                                       TIMEOUT_IN_MS));
+            TEST_NZ(rdma_resolve_route(event_copy.id, TIMEOUT_IN_MS));
             break;
         }
         case RDMA_CM_EVENT_ROUTE_RESOLVED:
@@ -455,7 +454,7 @@ void RDMAClient::send_next_chunk(uint32_t buffer_id, uint32_t window_id)
     if (size == -1)
         rc_die("read() failed\n");
 
-    std::cout << "F**k. Who called me?";
+    std::cout << "OMG. Who called me?";
     //write_remote(buffer_id, window_id, size);
 }
 
@@ -470,68 +469,6 @@ void RDMAClient::send_file_name(struct rdma_cm_id *id)
     // DictXiong: 23 似乎是个魔数
     write_large_block(23, IMM_SHOW_CONNECTION_INFO);
 }
-// DictXiong: 似乎也不会被调用? 
+/* DictXiong: 似乎也不会被调用? 
 void RDMAClient::on_completion(struct ibv_wc *wc)
-{
-    struct rdma_cm_id *id = ctx->id;
-    uint32_t msg_id = wc->wr_id;
-
-    uint32_t window_id = ctx->window_id % WINDOWS_NUM;
-    ctx->window_id = window_id;
-
-    if (wc->opcode & IBV_WC_RECV)
-    { //收到对方的ACK回复确认。
-        if (ctx->msg[msg_id].id == MSG_MR)
-        {
-            ctx->peer_addr = ctx->msg[msg_id].data.mr.addr;
-            ctx->peer_rkey = ctx->msg[msg_id].data.mr.rkey;
-
-            printf("Received MR, ready to send\n");
-            send_file_name(id);
-            /* DictXiong: no. WE decide when to send.
-            for (int index = 1; index < MAX_DATA_IN_FLIGHT; index++)
-            {
-                //uint32_t window_id = index;
-                int base_addr = index * BUFFER_SIZE + window_id * BUFFER_SIZE * MAX_DATA_IN_FLIGHT;
-                ctx->buffer[base_addr + 0] = index;
-                ctx->buffer[base_addr + BUFFER_SIZE - 1] = index;
-                send_next_chunk(index, window_id);
-            }
-            */
-            //ctx->window_id++;
-        }
-        else if (ctx->msg[msg_id].id == MSG_READY)
-        {
-            //batch_index:
-            // |   0-47  |    48   |    49   |
-            // |buffer_id|window_id|num_token|
-
-            /* DictXiong: now WE decide when to send.
-            uint32_t num_token = ctx->msg[msg_id].data.batch_index[MSG_NUM_OFFEST];
-            for (uint32_t token_id = 0; token_id < num_token; token_id++)
-            {
-                int buffer_id = ctx->msg[msg_id].data.batch_index[token_id];
-
-                int base_addr = buffer_id * BUFFER_SIZE + window_id * BUFFER_SIZE * MAX_DATA_IN_FLIGHT;
-                ctx->buffer[base_addr + 0] = buffer_id;
-                ctx->buffer[base_addr + BUFFER_SIZE - 1] = buffer_id;
-                send_next_chunk(buffer_id, window_id);
-
-                if (buffer_id == MAX_DATA_IN_FLIGHT - 1)
-                { //slice to the next window
-                    ctx->window_id = (ctx->window_id + 1) % WINDOWS_NUM;
-                    window_id = ctx->window_id;
-                }
-            }
-            */
-        }
-        else if (ctx->msg[msg_id].id == MSG_DONE)
-        {
-            LOG_INFO("received DONE, disconnecting\n");
-            rdma_disconnect(id);
-            return;
-        }
-
-        post_receive(msg_id);
-    }
-}
+*/
