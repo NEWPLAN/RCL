@@ -61,7 +61,7 @@ struct ibv_pd *RDMABase::rc_get_pd(struct rdma_cm_id *id)
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
     if (ctx == 0 || ctx == nullptr || ctx == NULL)
     {
-        LOG_INFO("Error of get pd: %x\n", ctx);
+        LOG(INFO) << "Error of get pd: " << hex << ctx;
         return NULL;
     }
     return ctx->pd;
