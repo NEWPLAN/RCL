@@ -72,19 +72,21 @@ void client_functions(std::vector<std::string> ip)
     std::string local_ip = ip[0];
     for (size_t i = 1; i < ip.size(); i++)
     {
-        job_queues.push_back(new BlockingQueue<comm_job>);
+        auto job_queue = new BlockingQueue<comm_job>;
+        job_queues.push_back(job_queue);
         std::string server_ip = ip[i];
 
         std::cout << "Connecting to: " << server_ip << std::endl;
-        new std::thread([server_ip, local_ip, &job_queues]() {
+        new std::thread([server_ip, local_ip, job_queue]() {
             RDMAClient *rclient;
-            rclient = new RDMAClient(server_ip, local_ip, job_queues.back());
+            rclient = new RDMAClient(server_ip, local_ip, job_queue);
             // 测试 bind_recv_imm
-            rclient->bind_recv_imm(IMM_TEST, [](ibv_wc* wc){
+            rclient->bind_recv_imm(IMM_TEST, [job_queue](ibv_wc* wc){
                 std::cout << "芜湖! 客户端起飞!\n" ;
+                job_queue -> push(comm_job(comm_job::WRITE, 114514));
             });
             rclient->set_when_write_finished([](){
-                std::cout << "老子发完了! \n";
+                std::cout << "客户端发完了! \n";
             });
             rclient->setup();
         });
