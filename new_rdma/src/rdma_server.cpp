@@ -207,36 +207,36 @@ namespace newplan
 
                 if (wc.status != IBV_WC_SUCCESS)
                 {
-                    LOG(FATAL) << "Error of poll elements in work completion queue";
+                    LOG(FATAL) << "Error when polling work completion: " << ibv_wc_status_str(wc.status);
                 }
 
                 switch (wc.opcode)
                 {
                 case IBV_WC_SEND:
                 {
-                    LOG(INFO) << "Finished send request";
+                    LOG_EVERY_N(INFO, 100) << "[out] request: send";
                     break;
                 }
                 case IBV_WC_RECV:
                 {
                     break_loops = true;
-                    LOG(INFO) << "Finished Recv request";
+                    LOG_EVERY_N(INFO, 100) << "[in ] request: Recv";
                     break;
                 }
                 case IBV_WC_RDMA_WRITE:
                 {
-                    LOG(INFO) << "Finished write RDMA request";
+                    LOG_EVERY_N(INFO, 100) << "[out] request: write";
                     break;
                 }
                 case IBV_WC_RECV_RDMA_WITH_IMM:
                 {
                     break_loops = true;
-                    LOG(INFO) << "Finished Recv RDMA wrtite with IMM request: "
-                              << ntohl(wc.imm_data);
+                    LOG_EVERY_N(INFO, 100) << "[in ] request: write_with_IMM, "
+                                           << ntohl(wc.imm_data);
                     break;
                 }
                 default:
-                    LOG(INFO) << "Unknown opcode" << wc.opcode;
+                    LOG_EVERY_N(INFO, 100) << "Unknown opcode" << wc.opcode;
                 }
 
             } while (!break_loops);

@@ -654,7 +654,7 @@ bool RDMAAdapter::modify_qp_to_rtr(struct write_lat_dest *rem_dest)
     // Packet Sequence Number of the received packets
     attr.rq_psn = rem_dest->psn;
     attr.max_dest_rd_atomic = 1;
-    attr.min_rnr_timer = 12;
+    attr.min_rnr_timer = 20; //12; //https://www.rdmamojo.com/2013/01/12/ibv_modify_qp/
 
     // Address vector
     attr.ah_attr.is_global = 0;
@@ -695,7 +695,8 @@ bool RDMAAdapter::modify_qp_to_rts(struct write_lat_dest *my_dest)
     struct ibv_qp_attr attr;
     attr.qp_state = IBV_QPS_RTS;
     // The minimum time that a QP waits for ACK/NACK from remote QP
-    attr.timeout = 14;
+    // https://www.rdmamojo.com/2013/01/12/ibv_modify_qp/
+    attr.timeout = 14; //14;
     attr.retry_cnt = 7;
     attr.rnr_retry = 7;
     attr.sq_psn = my_dest->psn;
