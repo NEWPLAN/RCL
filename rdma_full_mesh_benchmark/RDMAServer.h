@@ -11,7 +11,7 @@ class RDMAServer : public RDMABase
 {
 public:
     RDMAServer(RDMAAdapter &rdma_adapter);
-    RDMAServer(const std::string &server_ip);
+    RDMAServer(const std::string &server_ip, const unsigned short server_port);
     ~RDMAServer();
 
     void setup();

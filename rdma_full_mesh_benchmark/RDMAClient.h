@@ -8,7 +8,7 @@ class RDMAClient : public RDMABase
 {
 public:
     RDMAClient(RDMAAdapter &rdma_adapter);
-    RDMAClient(const std::string &server_ip, const std::string &client_ip, BlockingQueue<comm_job> *q);
+    RDMAClient(const std::string &server_ip, const std::string &client_ip, const unsigned short server_port, BlockingQueue<comm_job> *q);
     ~RDMAClient();
 
     void setup();

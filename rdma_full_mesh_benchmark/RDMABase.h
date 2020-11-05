@@ -28,8 +28,8 @@
 //******switch*************
 //#define DEBUG_REVERSE_ORDER
 
-const int SERVER_PORT = 12345;
-const int CONTROL_PORT = 12346;
+const unsigned short SERVER_PORT = 12345;
+const unsigned short CONTROL_PORT = 12346;
 
 enum message_id
 {
