@@ -212,6 +212,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         clients_left = count_clients + 1;
         master->broadcast_imm(IMM_CLIENT_WRITE_START);
         timer.Start();
+        LOG(INFO) << "timer started";
     }
     while(true)
     {
