@@ -156,7 +156,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         std::cout << "Connecting to: " << i << std::endl;
         RDMAClient *rclient = new RDMAClient(i, local_ip, SERVER_PORT, job_queue);
         rclient->set_tos(tos_data);
-        rclient->set_when_write_finished([&jobs_left](){
+        rclient->set_when_write_finished([&jobs_left, control_queue](){
             jobs_left--;
             if (jobs_left == 0)
             {
@@ -186,7 +186,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     // master
     if (master_ip == local_ip)
     {
-        newplan::Timer() timer;
+        newplan::Timer timer;
         RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
         master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, master](ibv_wc *wc){

@@ -224,11 +224,10 @@ protected:
     virtual void rc_die(const char *reason);
     virtual void log_info(const char *format, ...);
 
-    virtual void set_tos(uint8_t t) {tos = t;}
-
-
+    
 public:
     virtual struct ibv_pd *rc_get_pd(struct rdma_cm_id *id);
+    virtual void set_tos(uint8_t t) {tos = t;}
     
 
 private:
