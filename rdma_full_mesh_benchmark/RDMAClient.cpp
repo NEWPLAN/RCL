@@ -33,7 +33,6 @@ RDMAClient::RDMAClient(RDMAAdapter &rdma_adapter)
  */
 RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, const unsigned short server_port, BlockingQueue<comm_job> *q)
 {
-    LOG(INFO) << "Creating RDMAClient";
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_client_ip(client_ip.c_str());
     this->rdma_adapter_.set_server_port(server_port);
@@ -42,6 +41,7 @@ RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_i
     std::stringstream tmp;
     tmp << "(Client" << server_port << ")";
     tmp >> this->log_id;
+    LOG(INFO) << log_id << "Constructed";
 }
 RDMAClient::~RDMAClient()
 {
@@ -290,7 +290,10 @@ void *RDMAClient::poll_cq(void *_id)
     return NULL;
 }
 
-// 向 Server 发送数据块
+/**
+ * 轮询任务队列, 向服务端写或者发消息
+ * 实际上通过 BlockingQueue 实现阻塞
+ */
 void RDMAClient::poll_job_queue()
 {
     while (true)
@@ -376,6 +379,13 @@ void RDMAClient::post_receive(uint32_t msg_id)
     TEST_NZ(ibv_post_recv(id->qp, &wr, &bad_wr));
 }
 
+/**
+ * 向服务端写一大块数据
+ * 如果带立即数, wr_id 为 WR_WRITE_WITH_IMM (1250)
+ *  否则为 WR_WRITE_LARGE_BLOCK (1248)
+ * @param len 数据的大小, 单位 byte
+ * @param imm_data 附带的立即数, 默认为 NO_IMM (1500)
+ */
 void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
 {
     LOG(INFO) << log_id << "write_large_block: len " << len;
@@ -412,6 +422,11 @@ void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
 
+/**
+ * 向服务端发 imm
+ * 改编自 write_large_block, 使用 write 方法, 但 write 大小为 0
+ * @param imm_data 立即数
+ */
 void RDMAClient::send_imm(uint32_t imm_data)
 {
     LOG(INFO) << log_id << "send_imm " << imm_data;

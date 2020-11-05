@@ -30,13 +30,13 @@ RDMAServer::RDMAServer(RDMAAdapter &rdma_adapter)
  */
 RDMAServer::RDMAServer(const std::string &server_ip, const unsigned short server_port)
 {
-    LOG(INFO) << ("Creating RDMAServer");
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_server_port(server_port);
 
     std::stringstream tmp;
     tmp << "(Server" << server_port << ")";
     tmp >> this->log_id;
+    LOG(INFO) << log_id << "Constructed";
 }
 
 RDMAServer::~RDMAServer()
@@ -134,22 +134,6 @@ void RDMAServer::_init()
     }
 }
 
-inline void parse_from_imm_data(uint32_t imm_data, uint32_t *window_id, uint32_t *buffer_id, uint32_t *data_size)
-{
-    //***************************************
-    //          immediate data:
-    //        256*256*65536 = 4G
-    // _____________________________________
-    // |   31-24   |   23-16   |    15-0   |
-    // | buffer id | window id | data size |
-    //***************************************
-    uint32_t imm_data_recv = ntohl(imm_data);
-    *data_size = imm_data_recv & 0XFFFF;
-    *buffer_id = (imm_data_recv >> 24) & 0xFF;
-    *window_id = (imm_data_recv >> 16) & 0xFF;
-    return;
-}
-
 void *RDMAServer::poll_cq(void *_id)
 {
     struct ibv_cq *cq = NULL;
@@ -244,7 +228,13 @@ void RDMAServer::build_context(struct rdma_cm_id *id)
     });
 }
 
-// 对于每一个 Client, 发送消息.
+/**
+ * 轮询任务队列, 向客户端发立即数
+ * 通过 BlockingQueue 来实现阻塞
+ * 实际运行中, 对于每一个 context, 都会有一个 queue, 并有一个单独的线程来负责轮询
+ * @param id rdma 上下文 id
+ * @param que 欲轮询的任务队列
+ */
 void RDMAServer::poll_job_queue(struct rdma_cm_id *id, BlockingQueue<comm_job> *que)
 {
     while (true)
@@ -353,6 +343,12 @@ void RDMAServer::send_message(struct rdma_cm_id *id, uint32_t token_id, uint32_t
     // refer to: https://zhuanlan.zhihu.com/p/101250614
 }
 
+/**
+ * 向目标客户端发送立即数
+ * 改编自 send_message
+ * @param id 与目标客户端的连接的上下文 id
+ * @param imm_data 欲发送的立即数
+ */
 void RDMAServer::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
 {
     struct RDMAContext *ctx = (struct RDMAContext *)id->context;
@@ -375,6 +371,11 @@ void RDMAServer::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
     TEST_NZ(ibv_post_send(id->qp, &wr, &bad_wr));
 }
 
+/**
+ * 向所有的客户端发送立即数
+ * 只需要把任务压入每一个任务队列就可以了
+ * @param imm 欲发送的立即数
+ */
 void RDMAServer::broadcast_imm(uint32_t imm)
 {
     LOG(INFO) << log_id << "Broadcast " << imm << " to " << job_queues.size() <<" clients";
@@ -511,4 +512,23 @@ void RDMAServer::process_message(struct RDMAContext *ctx, uint32_t token,
 
 /* DictXiong: 应该不会调用这个
 void RDMAServer::on_completion(struct ibv_wc *wc)
+*/
+
+
+/* DictXiong: 陈年往事
+inline void parse_from_imm_data(uint32_t imm_data, uint32_t *window_id, uint32_t *buffer_id, uint32_t *data_size)
+{
+    //***************************************
+    //          immediate data:
+    //        256*256*65536 = 4G
+    // _____________________________________
+    // |   31-24   |   23-16   |    15-0   |
+    // | buffer id | window id | data size |
+    //***************************************
+    uint32_t imm_data_recv = ntohl(imm_data);
+    *data_size = imm_data_recv & 0XFFFF;
+    *buffer_id = (imm_data_recv >> 24) & 0xFF;
+    *window_id = (imm_data_recv >> 16) & 0xFF;
+    return;
+}
 */
