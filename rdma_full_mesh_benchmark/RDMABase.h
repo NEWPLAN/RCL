@@ -28,6 +28,9 @@
 //******switch*************
 //#define DEBUG_REVERSE_ORDER
 
+const int SERVER_PORT = 12345;
+const int CONTROL_PORT = 12346;
+
 enum message_id
 {
     MSG_INVALID = 0,
@@ -137,12 +140,17 @@ struct RDMAAdapter
     void set_server_ip(const char *_server_ip)
     {
         server_ip = _server_ip;
-        std::cout << "Server IP : " << server_ip << std::endl;
+        std::cout << "Server IP: " << server_ip << std::endl;
     }
     void set_client_ip(const char *_client_ip)
     {
         client_ip = _client_ip;
-        std::cout << "Client IP : " << client_ip << std::endl;
+        std::cout << "Client IP: " << client_ip << std::endl;
+    }
+    void set_server_port(unsigned short port)
+    {
+        server_port = port;
+        std::cout << "Server Port: " << port << std::endl;
     }
     std::string get_client_ip() { return client_ip; }
     std::string get_server_ip() { return server_ip; }

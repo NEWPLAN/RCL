@@ -23,9 +23,11 @@ RDMAServer::RDMAServer(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     LOG(INFO) << ("Creating RDMAServer");
 }
-RDMAServer::RDMAServer(const std::string &server_ip)
+RDMAServer::RDMAServer(const std::string &server_ip, const unsigned short server_port)
 {
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
+    this->rdma_adapter_.set_server_port(server_port);
+    LOG(INFO) << ("Creating RDMAServer");
 }
 
 RDMAServer::~RDMAServer()

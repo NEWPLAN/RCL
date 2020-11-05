@@ -49,7 +49,7 @@ int single_benchmark(int argc, char const *argv[])
 void server_functions(std::vector<std::string> ip)
 {
     RDMAServer *rserver;
-    rserver = new RDMAServer("0.0.0.0");
+    rserver = new RDMAServer("0.0.0.0", SERVER_PORT);
     newplan::Timer t;
     rserver->bind_recv_imm(IMM_TEST, [](ibv_wc *wc){
         std::cout << "芜湖! 服务端起飞! \n";
@@ -88,7 +88,7 @@ void client_functions(std::vector<std::string> ip)
         new std::thread([server_ip, local_ip, job_queue]() {
             RDMAClient *rclient;
             newplan::Timer t;
-            rclient = new RDMAClient(server_ip, local_ip, job_queue);
+            rclient = new RDMAClient(server_ip, local_ip, SERVER_PORT, job_queue);
             // 测试 bind_recv_imm
             rclient->bind_recv_imm(IMM_TEST, [job_queue](ibv_wc* wc){
                 std::cout << "芜湖! 客户端起飞!\n" ;
@@ -140,7 +140,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     const uint8_t tos_control = 128;
 
     // Create server
-    RDMAServer *rserver = new RDMAServer("0.0.0.0");
+    RDMAServer *rserver = new RDMAServer("0.0.0.0", SERVER_PORT);
     rserver->set_tos(tos_data);
     new std::thread([rserver](){
         rserver->setup();
@@ -154,7 +154,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         client_job_queues.push_back(job_queue);
 
         std::cout << "Connecting to: " << i << std::endl;
-        RDMAClient *rclient = new RDMAClient(i, local_ip, job_queue);
+        RDMAClient *rclient = new RDMAClient(i, local_ip, SERVER_PORT, job_queue);
         rclient->set_tos(tos_data);
         rclient->set_when_write_finished([&jobs_left](){
             jobs_left--;
@@ -171,7 +171,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
 
     //+master-control
     // build control_client
-    RDMAClient* control_client = new RDMAClient(master_ip, local_ip, control_queue);
+    RDMAClient* control_client = new RDMAClient(master_ip, local_ip, CONTROL_PORT, control_queue);
     control_client->set_tos(tos_control);
     control_client->bind_recv_imm(IMM_CLIENT_WRITE_START, [&client_job_queues, &jobs_left, &count_clients](ibv_wc *wc){
         for (auto &i:client_job_queues)
@@ -187,7 +187,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     if (master_ip == local_ip)
     {
         newplan::Timer() timer;
-        RDMAServer* master = new RDMAServer("0.0.0.0");
+        RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
         master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, master](ibv_wc *wc){
             timer.Stop();
