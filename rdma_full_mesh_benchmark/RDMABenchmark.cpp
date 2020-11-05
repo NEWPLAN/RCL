@@ -191,7 +191,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         newplan::Timer timer;
         RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
-        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, master](ibv_wc *wc){
+        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, &clients_left, master](ibv_wc *wc){
             clients_left--;
             if (clients_left == 0)
             {
