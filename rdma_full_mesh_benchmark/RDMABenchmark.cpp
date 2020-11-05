@@ -136,6 +136,8 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     BlockingQueue<comm_job>* control_queue = new BlockingQueue<comm_job>;
     const int count_clients = ips.size() - 1;
     std::atomic<int> jobs_left; // 当前还没有完成发送的客户端
+    std::atomic<int> clients_left; //当前还没有发送完成的客户机
+    // 辨析: 一个机器上会有 n-1 个客户端. 一个客户机上所有的客户端发送完毕之后 (jobs_left == 0), 发消息给 master; master 收到所有客户机的消息之后 (clients_left == 0), 停止计时. 
     const uint8_t tos_data = 64;
     const uint8_t tos_control = 128;
 
@@ -190,21 +192,26 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
         master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, master](ibv_wc *wc){
-            timer.Stop();
-            LOG(INFO) << "timer stopped";
-            std::cout << "(Master) ---------- epoch time: " << timer.MilliSeconds() << "ms ----------" << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-            master->broadcast_imm(IMM_CLIENT_WRITE_START);
-            timer.Start();
-            LOG(INFO) << "timer started";
+            clients_left--;
+            if (clients_left == 0)
+            {
+                timer.Stop();
+                LOG(INFO) << "timer stopped";
+                std::cout << "(Master) ---------- epoch time: " << timer.MilliSeconds() << "ms ----------" << std::endl;
+                std::this_thread::sleep_for(std::chrono::seconds(10));
+                clients_left = count_clients + 1;
+                master->broadcast_imm(IMM_CLIENT_WRITE_START);
+                timer.Start();
+                LOG(INFO) << "timer started";
+            }
         });
         new std::thread([master](){
             master->setup();
         });
         std::this_thread::sleep_for(std::chrono::seconds(10));
+        clients_left = count_clients + 1;
         master->broadcast_imm(IMM_CLIENT_WRITE_START);
         timer.Start();
-        
     }
     while(true)
     {
