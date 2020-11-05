@@ -198,7 +198,11 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         });
         std::this_thread::sleep_for(std::chrono::seconds(10));
         master->broadcast_imm(IMM_CLIENT_WRITE_START);
+        new std::thread([master](){
+            master->setup();
+        });
         timer.Start();
+        
     }
     while(true)
     {
