@@ -150,20 +150,6 @@ void RDMASession::connect_active() // for client
     {
         LOG(FATAL) << "Fail to tell the server that the client is ready";
     }
-
-    // int index_round = 10;
-
-    // do
-    // {
-    //     char write_data[1024] = "Hello, server!";
-    //     char read_data[1024] = {0};
-
-    //     pre_connector->write_exact(write_data, sizeof(write_data));
-    //     pre_connector->read_exact(read_data, 1024);
-    //     //pre_connector->sock_sync_data(write_data, read_data, 1024);
-    //     LOG(INFO) << "Read from peer: " << read_data;
-    //     std::this_thread::sleep_for(std::chrono::seconds(2));
-    // } while (index_round-- > 0);
 }
 
 void RDMASession::connect_passive() // for server
@@ -244,4 +230,17 @@ void RDMASession::connect_passive() // for server
     //     LOG(INFO) << "Read from peer: " << read_data;
 
     // } while (true);
+}
+
+RDMAChannel *RDMASession::get_channel(int ctype)
+{
+    if (ctype == DATA_CHANNEL)
+        return data_channel;
+    else if (ctype == CTRL_CHANNEL)
+        return ctrl_channel;
+    else
+    {
+        LOG(FATAL) << "Error when getting channel: " << ctype;
+        return nullptr;
+    }
 }

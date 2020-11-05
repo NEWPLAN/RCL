@@ -1,19 +1,12 @@
-#ifndef __NEWPLAN_TP_RDMA_SESSION_H__
-#define __NEWPLAN_TP_RDMA_SESSION_H__
-#include "rdma_channel.h"
-#include "pre_connector.h"
+#ifndef __NEWPLAN_RDMA_SESSION_H__
+#define __NEWPLAN_RDMA_SESSION_H__
 
 #include <glog/logging.h>
 #include <functional>
+#include "pre_connector.h"
+#include "rdma_channel.h"
 
 class RDMAChannel;
-
-enum ChannelType
-{
-    UNKNOWN_CHANNEL = 0,
-    DATA_CHANNEL = 1,
-    CTRL_CHANNEL = 2
-};
 
 class RDMASession
 {
@@ -27,18 +20,7 @@ public:
     void connect_active();
     void connect_passive();
 
-    RDMAChannel *get_channel(ChannelType ctype)
-    {
-        if (ctype == DATA_CHANNEL)
-            return data_channel;
-        else if (ctype == CTRL_CHANNEL)
-            return ctrl_channel;
-        else
-        {
-            LOG(FATAL) << "Error when getting channel: " << ctype;
-            return nullptr;
-        }
-    }
+    RDMAChannel *get_channel(int ctype);
 
 public:
     bool set_pre_connector(PreConnector *pre);

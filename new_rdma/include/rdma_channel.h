@@ -5,6 +5,13 @@
 
 class RDMASession;
 
+enum ChannelType
+{
+    UNKNOWN_CHANNEL = 0,
+    DATA_CHANNEL = 1,
+    CTRL_CHANNEL = 2,
+};
+
 class RDMAChannel
 {
 public:
@@ -22,5 +29,6 @@ private:
     RDMASession *session_ = nullptr;
 
     uint8_t prio_ = 0;
+    ChannelType ch_type_;
 };
 #endif
