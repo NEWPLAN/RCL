@@ -57,7 +57,14 @@ bool RDMASession::do_connect(bool is_server)
         LOG(WARNING) << "Error: pre connector is null!";
         return false;
     }
-    data_channel = new RDMAChannel(this);
+
+    LOG(INFO) << "Building ctrl channel";
+    ctrl_channel = new RDMAChannel(this, 96);
+
+    LOG(INFO) << "Building data channel";
+    data_channel = new RDMAChannel(this, 0);
+
+    //std::this_thread::sleep_for(std::chrono::seconds(10));
 
     if (is_server)
     {

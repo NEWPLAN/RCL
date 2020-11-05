@@ -82,6 +82,8 @@ struct write_lat_context
     uint32_t max_cq_size;
     uint32_t max_sq_size;
     uint32_t max_rq_size;
+
+    struct ibv_device **dev_list;
 };
 
 // Destination information
@@ -108,7 +110,7 @@ struct write_lat_mem
 class RDMAAdapter
 {
 public:
-    RDMAAdapter();
+    RDMAAdapter(uint8_t);
     virtual ~RDMAAdapter();
 
     // Initialize IB context
@@ -191,9 +193,18 @@ public:
     }
 
 private:
-    int modify_qp_to_init(struct ibv_qp_attr &);
+    bool modify_qp_to_init();
     bool modify_qp_to_rtr(struct write_lat_dest *);
     bool modify_qp_to_rts(struct write_lat_dest *);
+
+private:
+    bool create_context();
+    bool create_event_channel();
+    bool create_protect_domain();
+    struct ibv_mr *create_register_mem(char **,
+                                       uint32_t);
+    bool create_completion_queue(int);
+    bool create_queue_pair(uint32_t, uint32_t);
 
 private:
     std::string endpoint_name;
@@ -201,6 +212,8 @@ private:
 public:
     write_lat_context *ctx = nullptr;
     char *default_device = (char *)"mlx5_0";
+
+    uint8_t prio_ = 0;
 };
 
 #endif

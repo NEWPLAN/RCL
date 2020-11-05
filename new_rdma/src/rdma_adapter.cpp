@@ -21,7 +21,8 @@ static inline int ib_dev_id_by_name(char *ib_dev_name,
     return -1;
 }
 
-RDMAAdapter::RDMAAdapter()
+RDMAAdapter::RDMAAdapter(uint8_t prio)
+    : prio_(prio)
 {
     if (ctx == nullptr)
     {
@@ -55,12 +56,11 @@ RDMAAdapter::~RDMAAdapter()
     LOG(INFO) << "Destroy RDMAAdapter...";
 }
 
-bool RDMAAdapter::init_ctx()
+bool RDMAAdapter::create_context()
 {
     if (!ctx)
     {
-        LOG(INFO) << "Error of init context";
-        exit(-1);
+        LOG(FATAL) << "Error of creating context";
     }
 
     struct ibv_device **dev_list = NULL;
@@ -68,47 +68,52 @@ bool RDMAAdapter::init_ctx()
 
     // Get IB device list
     dev_list = ibv_get_device_list(&num_devices);
+
     if (!dev_list)
     {
-        fprintf(stderr, "Fail to get IB device list\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to get IB device list";
     }
     else if (num_devices == 0)
     {
-        fprintf(stderr, "No IB devices found\n");
-        exit(-1);
+        LOG(FATAL) << "No IB devices found";
     }
 
     int ib_dev_id = -1;
     ib_dev_id = ib_dev_id_by_name(ctx->ib_dev_name, dev_list, num_devices);
     if (ib_dev_id < 0)
     {
-        fprintf(stderr, "Fail to find IB device %s\n", ctx->ib_dev_name);
-        exit(-1);
+        LOG(FATAL) << "Fail to find IB device " << ctx->ib_dev_name;
     }
 
     // Create a context for the RDMA device
     ctx->ctx = ibv_open_device(dev_list[ib_dev_id]);
     if (ctx->ctx)
     {
-        printf("Open IB device %s\n", ibv_get_device_name(dev_list[ib_dev_id]));
+        LOG(INFO) << "Open IB device "
+                  << ibv_get_device_name(dev_list[ib_dev_id]);
     }
     else
     {
-        fprintf(stderr, "Fail to open IB device %s\n", ibv_get_device_name(dev_list[ib_dev_id]));
-        exit(-1);
+        LOG(FATAL) << "Fail to open IB device "
+                   << ibv_get_device_name(dev_list[ib_dev_id]);
     }
 
-    LOG(INFO) << "Open IB device at: " << ibv_get_device_name(dev_list[ib_dev_id]);
+    LOG(INFO) << "Open IB device at: "
+              << ibv_get_device_name(dev_list[ib_dev_id]);
 
+    ctx->dev_list = dev_list;
+    return true;
+}
+
+bool RDMAAdapter::create_event_channel()
+{
     // Create a completion channel
     if (ctx->use_event)
     {
         ctx->channel = ibv_create_comp_channel(ctx->ctx);
         if (!(ctx->channel))
         {
-            fprintf(stderr, "Cannot create completion channel\n");
-            exit(-1);
+            LOG(FATAL) << "Cannot create completion channel";
         }
     }
     else
@@ -116,101 +121,88 @@ bool RDMAAdapter::init_ctx()
         LOG(INFO) << "Do not use the event channel";
         ctx->channel = NULL;
     }
+    return true;
+}
 
+bool RDMAAdapter::create_protect_domain()
+{
     // Allocate protection domain
     ctx->pd = ibv_alloc_pd(ctx->ctx);
     if (!(ctx->pd))
     {
-        fprintf(stderr, "Fail to allocate protection domain\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to allocate protection domain";
     }
 
     LOG(INFO) << "Allocating protection domain";
 
-    // Allocate memory for control plane messages
-    ctx->ctrl_buf = (char *)memalign(sysconf(_SC_PAGESIZE), ctx->ctrl_buf_size);
-    if (!(ctx->ctrl_buf))
+    return true;
+}
+
+struct ibv_mr *RDMAAdapter::create_register_mem(char **buf, uint32_t buf_size)
+{
+    char *tmp_buf = (char *)memalign(sysconf(_SC_PAGESIZE), buf_size);
+    if (!(tmp_buf))
     {
-        fprintf(stderr, "Fail to allocate memory for control plane messagees\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to allocate memory for control plane messagees";
+    }
+    *buf = tmp_buf;
+
+    // Register memory region
+    int access_flags = IBV_ACCESS_REMOTE_WRITE |
+                       IBV_ACCESS_LOCAL_WRITE;
+    struct ibv_mr *mem_mr = ibv_reg_mr(ctx->pd, tmp_buf,
+                                       buf_size, access_flags);
+    if (!mem_mr)
+    {
+        LOG(FATAL) << "Fail to register memory region for RDMA messages passing";
     }
 
-    // Allocate memory for data plane messages
-    ctx->data_buf = (char *)memalign(sysconf(_SC_PAGESIZE), ctx->data_buf_size);
-    if (!(ctx->data_buf))
-    {
-        fprintf(stderr, "Fail to allocate memory for data plane messagees\n");
-        exit(-1);
-    }
+    return mem_mr;
+}
 
-    LOG(INFO) << "Registering control plane message";
-
-    // Register memory region for control plane messages
-    int access_flags = IBV_ACCESS_LOCAL_WRITE;
-    ctx->ctrl_mr = ibv_reg_mr(ctx->pd, ctx->ctrl_buf, ctx->ctrl_buf_size, access_flags);
-    if (!(ctx->ctrl_mr))
-    {
-        fprintf(stderr, "Fail to register memory region for control plane messages\n");
-        exit(-1);
-    }
-
-    // Register memory region for data plane messages
-    access_flags = IBV_ACCESS_REMOTE_WRITE |
-                   IBV_ACCESS_LOCAL_WRITE;
-    ctx->data_mr = ibv_reg_mr(ctx->pd, ctx->data_buf,
-                              ctx->data_buf_size, access_flags);
-    if (!(ctx->data_mr))
-    {
-        fprintf(stderr, "Fail to register memory region for data plane messages\n");
-        exit(-1);
-    }
-
-    LOG(INFO) << "Register data plane message";
-
+bool RDMAAdapter::create_completion_queue(int num_cqe)
+{
     // Query device attributes
     if (ibv_query_device(ctx->ctx, &(ctx->dev_attr)) != 0)
     {
-        fprintf(stderr, "Fail to query device attributes\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to query device attributes";
     }
 
     // Query port attributes
     if (ibv_query_port(ctx->ctx, ctx->dev_port, &(ctx->port_attr)) != 0)
     {
-        fprintf(stderr, "Fail to query port attributes\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to query port attributes";
     }
 
     LOG(INFO) << "Querying IBV ports";
 
     // Create a completion queue
     ctx->cq = ibv_create_cq(ctx->ctx,
-                            4096, //ctx->dev_attr.max_cqe,
+                            num_cqe, //ctx->dev_attr.max_cqe,
                             NULL, ctx->channel, 0);
-    if (!(ctx->cq))
+    if (!ctx->cq)
     {
-        fprintf(stderr, "Fail to create the completion queue\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to create the completion queue";
     }
 
     LOG(INFO) << "Creating completion queue";
 
-    if (ctx->use_event)
+    if (ctx->use_event && ibv_req_notify_cq(ctx->cq, 0))
     {
-        if (ibv_req_notify_cq(ctx->cq, 0))
-        {
-            fprintf(stderr, "Cannot request CQ notification\n");
-            exit(-1);
-        }
+        LOG(FATAL) << "Cannot request CQ notification";
     }
-    // Create a queue pair (QP)
+    return true;
+}
+
+bool RDMAAdapter::create_queue_pair(uint32_t num_sqe, uint32_t num_rqe)
+{
     struct ibv_qp_attr attr;
     struct ibv_qp_init_attr init_attr = {
         .send_cq = ctx->cq,
         .recv_cq = ctx->cq,
         .cap = {
-            .max_send_wr = 1024, //ctx->dev_attr.max_qp_wr,
-            .max_recv_wr = 1024, //ctx->dev_attr.max_qp_wr,
+            .max_send_wr = num_sqe, //ctx->dev_attr.max_qp_wr,
+            .max_recv_wr = num_rqe, //ctx->dev_attr.max_qp_wr,
             .max_send_sge = 1,
             .max_recv_sge = 1,
         },
@@ -220,8 +212,7 @@ bool RDMAAdapter::init_ctx()
     ctx->qp = ibv_create_qp(ctx->pd, &init_attr);
     if (!(ctx->qp))
     {
-        fprintf(stderr, "Fail to create QP\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to create QP";
     }
 
     ctx->send_flags = IBV_SEND_SIGNALED;
@@ -236,14 +227,36 @@ bool RDMAAdapter::init_ctx()
         }
         else
         {
-            fprintf(stderr, "Fail to set IBV_SEND_INLINE because max inline data size is %d\n",
-                    init_attr.cap.max_inline_data);
+            LOG(FATAL) << "Fail to set IBV_SEND_INLINE because max inline data size is "
+                       << init_attr.cap.max_inline_data;
         }
     }
 
-    modify_qp_to_init(attr);
+    return true;
+}
 
-    ibv_free_device_list(dev_list);
+bool RDMAAdapter::init_ctx()
+{
+    this->create_context();
+    this->create_event_channel();
+    this->create_protect_domain();
+
+    // Allocate and register memory for control plane messages
+    ctx->ctrl_mr = create_register_mem(&(ctx->ctrl_buf),
+                                       ctx->ctrl_buf_size);
+
+    // Allocate and register memory for data plane messages
+    ctx->data_mr = create_register_mem(&(ctx->data_buf),
+                                       ctx->data_buf_size);
+
+    this->create_completion_queue(4096);
+
+    // Create a queue pair (QP)
+    this->create_queue_pair(1024, 1024);
+
+    modify_qp_to_init();
+
+    ibv_free_device_list(ctx->dev_list);
     return true;
 }
 
@@ -622,8 +635,9 @@ bool RDMAAdapter::wait_for_wc(struct ibv_wc *wc)
     return false;
 }
 
-int RDMAAdapter::modify_qp_to_init(struct ibv_qp_attr &attr)
+bool RDMAAdapter::modify_qp_to_init()
 {
+    struct ibv_qp_attr attr;
     attr.qp_state = IBV_QPS_INIT;
     attr.pkey_index = 0;
     attr.port_num = ctx->dev_port;
@@ -636,11 +650,9 @@ int RDMAAdapter::modify_qp_to_init(struct ibv_qp_attr &attr)
                           IBV_QP_PORT |
                           IBV_QP_ACCESS_FLAGS))
     {
-
-        fprintf(stderr, "Fail to modify QP to INIT\n");
-        exit(-1);
+        LOG(FATAL) << "Fail to modify QP to INIT";
     }
-    return 0;
+    return true;
 }
 bool RDMAAdapter::modify_qp_to_rtr(struct write_lat_dest *rem_dest)
 {
@@ -671,7 +683,8 @@ bool RDMAAdapter::modify_qp_to_rtr(struct write_lat_dest *rem_dest)
         attr.ah_attr.grh.hop_limit = 1;
         attr.ah_attr.grh.dgid = rem_dest->gid;
         attr.ah_attr.grh.sgid_index = ctx->gid_index;
-        attr.ah_attr.grh.traffic_class = 96;
+        attr.ah_attr.grh.traffic_class = this->prio_;
+        LOG(INFO) << "Runing this flow in traffic class: " << this->prio_ / 32;
     }
 
     if (ibv_modify_qp(ctx->qp, &attr,

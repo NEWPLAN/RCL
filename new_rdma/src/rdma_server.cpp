@@ -100,7 +100,7 @@ namespace newplan
         bool validate_buf = false;
 
         struct ibv_wc wc;
-        RDMAAdapter *ctx = sess->get_channel()->get_context();
+        RDMAAdapter *ctx = sess->get_channel(DATA_CHANNEL)->get_context();
 
         {
             validate_buf = true;
@@ -173,25 +173,25 @@ namespace newplan
         LOG(INFO) << "Server is starting the rdma service";
 
         struct ibv_wc wc;
-        RDMAAdapter *ctx = sess->get_channel()->get_context();
+        RDMAAdapter *data_ctx = sess->get_channel(DATA_CHANNEL)->get_context();
 
         // Get my data plane memory information
-        struct write_lat_mem *my_mem = (struct write_lat_mem *)ctx->ctx->ctrl_buf;
-        if (!ctx->init_data_mem(my_mem))
+        struct write_lat_mem *my_mem = (struct write_lat_mem *)data_ctx->ctx->ctrl_buf;
+        if (!data_ctx->init_data_mem(my_mem))
         {
             exit(-1);
         }
-        ctx->print_mem(my_mem);
+        data_ctx->print_mem(my_mem);
 
         while (true)
         {
             // Post a receive request to receive the completion notification
-            if (!ctx->post_ctrl_recv())
+            if (!data_ctx->post_ctrl_recv())
             {
                 exit(-1);
             }
             // Post a send request to send the memory information
-            if (!ctx->post_ctrl_send())
+            if (!data_ctx->post_ctrl_send())
             {
                 exit(-1);
             }
@@ -199,7 +199,7 @@ namespace newplan
             int break_loops = false;
             do
             {
-                if (!ctx->wait_for_wc(&wc))
+                if (!data_ctx->wait_for_wc(&wc))
                 { //poll completion queue in a blocking approach
                     fprintf(stderr, "Fail to get the completed send request\n");
                     exit(-1);
@@ -243,7 +243,7 @@ namespace newplan
         }
 
         printf("Destroy IB resources\n");
-        ctx->destroy_ctx();
+        data_ctx->destroy_ctx();
     }
 
 }; // namespace newplan

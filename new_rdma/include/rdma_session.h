@@ -8,6 +8,13 @@
 
 class RDMAChannel;
 
+enum ChannelType
+{
+    UNKNOWN_CHANNEL = 0,
+    DATA_CHANNEL = 1,
+    CTRL_CHANNEL = 2
+};
+
 class RDMASession
 {
 public:
@@ -20,7 +27,18 @@ public:
     void connect_active();
     void connect_passive();
 
-    RDMAChannel *get_channel() { return data_channel; }
+    RDMAChannel *get_channel(ChannelType ctype)
+    {
+        if (ctype == DATA_CHANNEL)
+            return data_channel;
+        else if (ctype == CTRL_CHANNEL)
+            return ctrl_channel;
+        else
+        {
+            LOG(FATAL) << "Error when getting channel: " << ctype;
+            return nullptr;
+        }
+    }
 
 public:
     bool set_pre_connector(PreConnector *pre);
@@ -29,6 +47,7 @@ public:
 
 private:
     RDMAChannel *data_channel = nullptr;
+    RDMAChannel *ctrl_channel = nullptr;
     PreConnector *pre_connector = nullptr;
     std::function<void(void *)> connect_by_endpoint = nullptr;
 };

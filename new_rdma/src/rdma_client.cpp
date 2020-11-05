@@ -95,7 +95,7 @@ namespace newplan
     void RDMAClient::start_service_default(RDMASession *sess)
     {
         LOG(INFO) << "Starting service";
-        RDMAAdapter *ctx = sess->get_channel()->get_context();
+        RDMAAdapter *ctx = sess->get_channel(DATA_CHANNEL)->get_context();
 
         unsigned int iters = DEFAULT_ITERS;
         bool use_event = false;
@@ -233,7 +233,7 @@ namespace newplan
     void RDMAClient::start_service(RDMASession *sess)
     {
         LOG(INFO) << "Starting service";
-        RDMAAdapter *ctx = sess->get_channel()->get_context();
+        RDMAAdapter *data_ctx = sess->get_channel(DATA_CHANNEL)->get_context();
 
         bool use_event = false;
         struct ibv_wc wc;
@@ -250,21 +250,21 @@ namespace newplan
                 struct ibv_cq *ev_cq;
                 void *ev_ctx;
 
-                if (ibv_get_cq_event(ctx->ctx->channel, &ev_cq, &ev_ctx))
+                if (ibv_get_cq_event(data_ctx->ctx->channel, &ev_cq, &ev_ctx))
                 {
                     fprintf(stderr, "Fail to get cq_event\n");
                     exit(-1);
                 }
 
-                if (ev_cq != ctx->ctx->cq)
+                if (ev_cq != data_ctx->ctx->cq)
                 {
                     fprintf(stderr, "CQ event for unknown CQ %p\n", ev_cq);
                     exit(-1);
                 }
 
-                ibv_ack_cq_events(ctx->ctx->cq, 1);
+                ibv_ack_cq_events(data_ctx->ctx->cq, 1);
 
-                if (ibv_req_notify_cq(ctx->ctx->cq, 0))
+                if (ibv_req_notify_cq(data_ctx->ctx->cq, 0))
                 {
                     fprintf(stderr, "Cannot request CQ notification\n");
                     exit(-1);
@@ -274,7 +274,7 @@ namespace newplan
             // Empty the completion queue
             while (true)
             {
-                if (!ctx->wait_for_wc(&wc))
+                if (!data_ctx->wait_for_wc(&wc))
                 { //poll completion queue in a blocking approach
                     fprintf(stderr, "Fail to get the completed send request\n");
                     exit(-1);
@@ -296,7 +296,7 @@ namespace newplan
                 {
                     LOG_EVERY_N(INFO, 100) << "[in ] request: Recv";
 
-                    if (!ctx->post_ctrl_recv())
+                    if (!data_ctx->post_ctrl_recv())
                     { // Post the receive request to receive memory information from the server
                         LOG(FATAL) << "Fail to post the receive request";
                     }
@@ -304,11 +304,11 @@ namespace newplan
                     { // server send a message to client to init a flow
                         first_epoch = false;
                         // Get remote data plane memory information
-                        rem_mem = (struct write_lat_mem *)ctx->ctx->ctrl_buf;
-                        ctx->print_mem(rem_mem);
+                        rem_mem = (struct write_lat_mem *)data_ctx->ctx->ctrl_buf;
+                        data_ctx->print_mem(rem_mem);
                     }
                     // Trigger the next write request
-                    if (!ctx->post_data_write_with_imm(rem_mem, ctx->ctx->data_buf_size))
+                    if (!data_ctx->post_data_write_with_imm(rem_mem, data_ctx->ctx->data_buf_size))
                     {
                         fprintf(stderr, "Could not post write\n");
                         exit(-1);
@@ -334,6 +334,6 @@ namespace newplan
         }
 
         printf("Destroy IB resources\n");
-        ctx->destroy_ctx();
+        data_ctx->destroy_ctx();
     }
 }; // namespace newplan
