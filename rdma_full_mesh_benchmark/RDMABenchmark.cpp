@@ -188,20 +188,20 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     // master
     if (master_ip == local_ip)
     {
-        newplan::Timer timer;
+        newplan::Timer *timer = new newplan::Timer();
         RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
-        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, &clients_left, count_clients, master](ibv_wc *wc){
+        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master](ibv_wc *wc){
             clients_left--;
             if (clients_left == 0)
             {
-                timer.Stop();
+                timer->Stop();
                 LOG(INFO) << "timer stopped";
-                std::cout << "(Master) ---------- epoch time: " << timer.MilliSeconds() << "ms ----------" << std::endl;
+                std::cout << "(Master) ---------- epoch time: " << timer->MilliSeconds() << "ms ----------" << std::endl;
                 std::this_thread::sleep_for(std::chrono::seconds(10));
                 clients_left = count_clients + 1;
                 master->broadcast_imm(IMM_CLIENT_WRITE_START);
-                timer.Start();
+                timer->Start();
                 LOG(INFO) << "timer started";
             }
         });
@@ -211,7 +211,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         std::this_thread::sleep_for(std::chrono::seconds(10));
         clients_left = count_clients + 1;
         master->broadcast_imm(IMM_CLIENT_WRITE_START);
-        timer.Start();
+        timer->Start();
         LOG(INFO) << "timer started";
     }
     while(true)
