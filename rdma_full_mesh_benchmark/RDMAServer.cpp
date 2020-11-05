@@ -30,9 +30,9 @@ RDMAServer::RDMAServer(RDMAAdapter &rdma_adapter)
  */
 RDMAServer::RDMAServer(const std::string &server_ip, const unsigned short server_port)
 {
+    LOG(INFO) << ("Creating RDMAServer");
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_server_port(server_port);
-    LOG(INFO) << ("Creating RDMAServer");
 }
 
 RDMAServer::~RDMAServer()
@@ -108,7 +108,7 @@ void RDMAServer::server_event_loops()
 }
 void RDMAServer::_init()
 {
-    LOG(INFO) << "Initializing RDMAClient";
+    LOG(INFO) << "Initializing RDMAServer which port = " << rdma_adapter_.server_port;
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;                              /*ipv4*/

@@ -258,6 +258,7 @@ int main(int argc, char const *argv[])
             ips.emplace_back(argv[i]);
             std::cout << "Cluster server ip: " << ips.back() << std::endl;
         }
+        std::cout << "----------" << std::endl;
         master_control(ips, master);
     }
     else if (strcmp(argv[1], "--cluster") == 0)

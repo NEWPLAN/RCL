@@ -33,11 +33,11 @@ RDMAClient::RDMAClient(RDMAAdapter &rdma_adapter)
  */
 RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, const unsigned short server_port, BlockingQueue<comm_job> *q)
 {
+    LOG(INFO) << "Creating RDMAClient";
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_client_ip(client_ip.c_str());
     this->rdma_adapter_.set_server_port(server_port);
     this->job_queue = q;
-    LOG(INFO) << "Creating RDMAClient";
 }
 RDMAClient::~RDMAClient()
 {
@@ -51,7 +51,7 @@ void RDMAClient::setup()
 
 void RDMAClient::_init()
 {
-    LOG(INFO) << "Initializing RDMAClient";
+    LOG(INFO) << "Initializing RDMAClient which port = " << rdma_adapter_.server_port;
 
     struct rdma_cm_id *conn = NULL;
     struct rdma_event_channel *ec = NULL;

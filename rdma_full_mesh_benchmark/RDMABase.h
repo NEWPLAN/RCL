@@ -140,17 +140,17 @@ struct RDMAAdapter
     void set_server_ip(const char *_server_ip)
     {
         server_ip = _server_ip;
-        std::cout << "Server IP: " << server_ip << std::endl;
+        LOG(INFO) << "Server IP: " << server_ip;
     }
     void set_client_ip(const char *_client_ip)
     {
         client_ip = _client_ip;
-        std::cout << "Client IP: " << client_ip << std::endl;
+        LOG(INFO) << "Client IP: " << client_ip;
     }
     void set_server_port(unsigned short port)
     {
         server_port = port;
-        std::cout << "Server Port: " << port << std::endl;
+        LOG(INFO) << "Server Port: " << port;
     }
     std::string get_client_ip() { return client_ip; }
     std::string get_server_ip() { return server_ip; }
