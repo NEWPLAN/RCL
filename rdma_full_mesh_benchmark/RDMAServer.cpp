@@ -33,6 +33,10 @@ RDMAServer::RDMAServer(const std::string &server_ip, const unsigned short server
     LOG(INFO) << ("Creating RDMAServer");
     this->rdma_adapter_.set_server_ip(server_ip.c_str());
     this->rdma_adapter_.set_server_port(server_port);
+
+    std::stringstream tmp;
+    tmp << "(Server" << server_port << ")";
+    tmp >> this->log_id;
 }
 
 RDMAServer::~RDMAServer()
@@ -50,7 +54,7 @@ void RDMAServer::server_event_loops()
     struct rdma_cm_event *event = NULL;
     struct rdma_conn_param cm_params;
 
-    LOG(INFO) << ("RDMAServer is inited, waiting connections from client");
+    LOG(INFO) << log_id << ("RDMAServer is inited, waiting connections from client");
 
     build_params(&cm_params);
 
@@ -65,7 +69,7 @@ void RDMAServer::server_event_loops()
         {
         case RDMA_CM_EVENT_CONNECT_REQUEST:
         {
-            LOG(INFO) << "Server: RDMA_CM_EVENT_CONNECT_REQUEST";
+            LOG(INFO) << log_id << "RDMA_CM_EVENT_CONNECT_REQUEST";
             build_connection(event_copy.id);
             on_pre_conn(event_copy.id);
             // qos here
@@ -78,14 +82,14 @@ void RDMAServer::server_event_loops()
         }
         case RDMA_CM_EVENT_ESTABLISHED:
         {
-            LOG(INFO) << ("Server: RDMA_CM_EVENT_ESTABLISHED");
+            LOG(INFO) << log_id << ("RDMA_CM_EVENT_ESTABLISHED");
             on_connection(event_copy.id);
             this->rdma_adapter_.recv_rdma_cm_id.push_back(event_copy.id);
             break;
         }
         case RDMA_CM_EVENT_DISCONNECTED:
         {
-            LOG(INFO) << ("Server: RDMA_CM_EVENT_DISCONNECTED");
+            LOG(INFO) << log_id << ("Server: RDMA_CM_EVENT_DISCONNECTED");
             rdma_destroy_qp(event_copy.id);
             on_disconnect(event_copy.id);
             rdma_destroy_id(event_copy.id);
@@ -108,14 +112,12 @@ void RDMAServer::server_event_loops()
 }
 void RDMAServer::_init()
 {
-    LOG(INFO) << "Initializing RDMAServer which port = " << rdma_adapter_.server_port;
+    LOG(INFO) << log_id << "Initializing, port " << rdma_adapter_.server_port;
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;                              /*ipv4*/
     sin.sin_port = htons(this->rdma_adapter_.server_port); /*server listen public ports*/
     sin.sin_addr.s_addr = INADDR_ANY;                      /*listen any connects*/
-
-    LOG(INFO) << "Listen port: " << this->rdma_adapter_.server_port;
 
     TEST_Z(this->rdma_adapter_.event_channel = rdma_create_event_channel());
     TEST_NZ(rdma_create_id(this->rdma_adapter_.event_channel, &this->rdma_adapter_.listener, NULL, RDMA_PS_TCP));
@@ -180,10 +182,10 @@ void *RDMAServer::poll_cq(void *_id)
 
             if (wc.status == IBV_WC_SUCCESS)
             {
-                LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
+                //LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
                 if (wc.opcode == IBV_WC_RECV_RDMA_WITH_IMM)
                 {
-                    LOG_EVERY_N(INFO, 1) << "Receive msg: " << wc.imm_data;
+                    LOG_EVERY_N(INFO, 1) << log_id << "poll_cq: receive msg: " << wc.imm_data;
                     if (wc.imm_data == IMM_SHOW_CONNECTION_INFO)
                     {
                         ctx->buffer[23] = 0;
@@ -192,15 +194,18 @@ void *RDMAServer::poll_cq(void *_id)
                     post_receive(id);
                     if (wc.imm_data != NO_IMM) on_imm_recv(&wc);
                 }
-                else if (wc.opcode == IBV_WC_SEND) {}
+                else if (wc.opcode == IBV_WC_SEND) 
+                {
+                    LOG_EVERY_N(INFO, 1) << log_id << "poll_cq: send complete";
+                }
                 else
                 {
-                    LOG(WARNING) << "Unknown message";
+                    LOG(WARNING) << log_id << "poll_cq: Unknown message, wr id :" << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
                 }
             }
             else
             {
-                LOG(ERROR) << "poll_cq: status is not IBV_WC_SUCCESS";
+                LOG(ERROR) << log_id << "poll_cq: status is not IBV_WC_SUCCESS";
                 rc_die("poll_cq: status is not IBV_WC_SUCCESS");
             }
         }
@@ -247,7 +252,7 @@ void RDMAServer::poll_job_queue(struct rdma_cm_id *id, BlockingQueue<comm_job> *
         auto job = que->pop();
         if (job.type == comm_job::SEND_IMM)
         {
-            LOG_EVERY_N(INFO, 1) << "Send " << job.data << " to client " << ((struct RDMAContext *)(id->context))->client_index;
+            LOG_EVERY_N(INFO, 1) << log_id <<"Send " << job.data << " to client " << ((struct RDMAContext *)(id->context))->client_index;
             send_imm(id, job.data);
         }
         else
@@ -372,7 +377,7 @@ void RDMAServer::send_imm(struct rdma_cm_id *id, uint32_t imm_data)
 
 void RDMAServer::broadcast_imm(uint32_t imm)
 {
-    LOG(INFO) << "Broadcast " << imm << " to " << job_queues.size() <<" clients";
+    LOG(INFO) << log_id << "Broadcast " << imm << " to " << job_queues.size() <<" clients";
     for (auto i : job_queues)
     {
         i->push(comm_job(comm_job::SEND_IMM,imm));

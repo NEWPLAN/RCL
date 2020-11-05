@@ -191,11 +191,12 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
         master->set_tos(tos_control);
         master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [&timer, master](ibv_wc *wc){
             timer.Stop();
-            std::cout << "(Master) Time: " << timer.MilliSeconds() << std::endl;
-            std::cout << "---------- epoch ----------" << std::endl;
+            LOG(INFO) << "timer stopped";
+            std::cout << "(Master) ---------- epoch time: " << timer.MilliSeconds() << "ms ----------" << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(10));
             master->broadcast_imm(IMM_CLIENT_WRITE_START);
             timer.Start();
+            LOG(INFO) << "timer started";
         });
         new std::thread([master](){
             master->setup();

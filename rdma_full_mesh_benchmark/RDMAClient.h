@@ -3,6 +3,7 @@
 #include <string>
 #include "RDMABase.h"
 #include <thread>
+#include <sstream>
 
 class RDMAClient : public RDMABase
 {

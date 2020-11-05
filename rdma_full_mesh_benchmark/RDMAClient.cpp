@@ -38,6 +38,10 @@ RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_i
     this->rdma_adapter_.set_client_ip(client_ip.c_str());
     this->rdma_adapter_.set_server_port(server_port);
     this->job_queue = q;
+
+    std::stringstream tmp;
+    tmp << "(Client" << server_port << ")";
+    tmp >> this->log_id;
 }
 RDMAClient::~RDMAClient()
 {
@@ -238,10 +242,10 @@ void *RDMAClient::poll_cq(void *_id)
         {
             if (wc.status == IBV_WC_SUCCESS)
             {
-                LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
+                //LOG_EVERY_N(INFO, 1) << "IBV_WC_SUCCESS, wr id: " << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
                 if (wc.opcode == IBV_WC_RDMA_WRITE)
                 { //判断write请求完成
-                    LOG_EVERY_N(INFO, 1) << "IBV_WC_RDMA_WRITE, wr id: " << wc.wr_id << ", imm = " << wc.imm_data;
+                    LOG_EVERY_N(INFO, 1) << log_id << "poll_cq: write complete, wr id: " << wc.wr_id << ", imm = " << wc.imm_data;
                     if (wc.wr_id == WR_WRITE_LARGE_BLOCK) todo_when_write_finished();
                 }
                 // DictXiong: 接收到来自服务端的消息
@@ -254,7 +258,7 @@ void *RDMAClient::poll_cq(void *_id)
                 else if (wc.opcode == IBV_WC_RECV)
                 {
                     post_receive(1);
-                    LOG_EVERY_N(INFO, 1) << "IBV_WC_RECV, wr id: " << wc.wr_id << " imm_data: " << wc.imm_data;
+                    LOG_EVERY_N(INFO, 1) << log_id << "poll_cq: imm recv, wr id: " << wc.wr_id << " imm_data: " << wc.imm_data;
                     
                     // DictXiong: 这...666似乎是某些初始化? 魔数杀我
                     if (wc.imm_data == IMM_MR) 
@@ -268,6 +272,10 @@ void *RDMAClient::poll_cq(void *_id)
                         send_file_name(id);
                     }
                     if (wc.imm_data != NO_IMM) on_imm_recv(&wc);
+                }
+                else 
+                {
+                    LOG(WARNING) << log_id << "poll_cq: Unknown message, wr id :" << wc.wr_id << ", imm: " << wc.imm_data << ", opcode: " << wc.opcode;
                 }
             }
             else
@@ -370,7 +378,7 @@ void RDMAClient::post_receive(uint32_t msg_id)
 
 void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
 {
-    LOG(INFO) << "Client write " << len << " to remote, opcode " << IBV_WR_RDMA_WRITE_WITH_IMM;
+    LOG(INFO) << log_id << "write_large_block: len " << len;
     struct rdma_cm_id *id = ctx->id;
 
     struct ibv_send_wr wr, *bad_wr = NULL;
@@ -406,7 +414,7 @@ void RDMAClient::write_large_block(uint32_t len, uint32_t imm_data)
 
 void RDMAClient::send_imm(uint32_t imm_data)
 {
-    LOG(INFO) << "Client send imm " << imm_data << " to remote";
+    LOG(INFO) << log_id << "send_imm " << imm_data;
     struct rdma_cm_id *id = ctx->id;
 
     struct ibv_send_wr wr, *bad_wr = NULL;
