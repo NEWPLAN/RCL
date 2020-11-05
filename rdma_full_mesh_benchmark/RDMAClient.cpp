@@ -24,6 +24,13 @@ RDMAClient::RDMAClient(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     std::cout << "Creating RDMAClient" << std::endl;
 }
+/**
+ * 构造函数
+ * @param server_ip 服务端的 ip
+ * @param client_ip 自己的 ip
+ * @param server_port 服务端的端口
+ * @param q 任务队列指针
+ */
 RDMAClient::RDMAClient(const std::string &server_ip, const std::string &client_ip, const unsigned short server_port, BlockingQueue<comm_job> *q)
 {
     this->rdma_adapter_.set_server_ip(server_ip.c_str());

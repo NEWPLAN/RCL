@@ -23,6 +23,11 @@ RDMAServer::RDMAServer(RDMAAdapter &rdma_adapter)
     this->rdma_adapter_ = rdma_adapter;
     LOG(INFO) << ("Creating RDMAServer");
 }
+/**
+ * 构造函数
+ * @param server_ip 自己的 ip, 常设为 0.0.0.0
+ * @param server_port 运行在哪个端口上
+ */
 RDMAServer::RDMAServer(const std::string &server_ip, const unsigned short server_port)
 {
     this->rdma_adapter_.set_server_ip(server_ip.c_str());

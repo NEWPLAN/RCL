@@ -240,6 +240,22 @@ int main(int argc, char const *argv[])
         rclient = new RDMAClient(rdma_adapter);
         rclient->setup();
     }
+    else if (strcmp(argv[1], "--master") == 0)
+    {
+        std::string master = argv[2];
+        std::vector<std::string> ips;
+        if (strcmp(argv[3], "--cluster") != 0)
+        {
+            LOG(FATAL) << "error parameters";
+        }
+        std::cout << "Master ip: " << master << std::endl;
+        for (int i = 4; i < argc; i++)
+        {
+            ips.emplace_back(argv[i]);
+            std::cout << "Cluster server ip: " << ips.back() << std::endl;
+        }
+        master_control(ips, master);
+    }
     else if (strcmp(argv[1], "--cluster") == 0)
     {
 
