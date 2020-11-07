@@ -198,7 +198,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
             {
                 timer->Stop();
                 LOG(INFO) << "timer stopped";
-                std::cout << "(Master) ---------- epoch time: " << timer->MilliSeconds() << "ms ----------" << std::endl;
+                std::cout << "(Master) ---------- epoch time: " << timer->MicroSeconds() << "us ----------" << std::endl;
                 std::this_thread::sleep_for(std::chrono::seconds(5));
                 clients_left = count_clients + 1;
                 master->broadcast_imm(IMM_CLIENT_WRITE_START);
