@@ -215,7 +215,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
                 LOG(INFO) << "timer stopped";
                 LOG(WARNING) << "(Master)***** epoch time: " << timer->MicroSeconds() << "us";
                 results.push_back(timer->MicroSeconds());
-                if (results.size() >= 10)
+                if (results.size() >= 1000)
                 {
                     std::stringstream ss;
                     ss << count_clients + 1 << "." << data_size << "." << time(NULL);
