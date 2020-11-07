@@ -263,7 +263,7 @@ int main(int argc, char const *argv[])
         std::vector<std::string> ips;
         for (int i = 2; i < argc; i++)
         {
-            string s = argv[i];
+            std::string s = argv[i];
             if (s == "--size")
             {
                 std::stringstream ss;
