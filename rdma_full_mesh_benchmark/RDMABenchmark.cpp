@@ -6,6 +6,19 @@
 #include "NetUtil.hpp"
 #include "timer.h"
 #include <sstream>
+#include <fstream>
+#include <vector>
+#include <ctime>
+
+template<typename T>
+void write_vector_to_file(std::vector<T> vec, std::string filename)
+{
+    std::ofstream f(filename, std::ios::out);
+    for (auto &i : vec)
+    {
+        f << i << std::endl;
+    }
+}
 
 void help(void)
 {
@@ -141,6 +154,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
     // 辨析: 一个机器上会有 n-1 个客户端. 一个客户机上所有的客户端发送完毕之后 (jobs_left == 0), 发消息给 master; master 收到所有客户机的消息之后 (clients_left == 0), 停止计时. 
     const uint8_t tos_data = 64;
     const uint8_t tos_control = 128;
+    std::vector<uint32_t> results;
 
     // Create server
     RDMAServer *rserver = new RDMAServer("0.0.0.0", SERVER_PORT);
@@ -192,14 +206,25 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
         newplan::Timer *timer = new newplan::Timer();
         RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
-        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master](ibv_wc *wc){
+        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master, &results](ibv_wc *wc){
             clients_left--;
             if (clients_left == 0)
             {
                 timer->Stop();
                 LOG(INFO) << "timer stopped";
                 std::cout << "(Master) ---------- epoch time: " << timer->MicroSeconds() << "us ----------" << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(5));
+                results.push_back(timer->MicroSeconds());
+                if (results.size() >= 10)
+                {
+                    std::stringstream ss;
+                    ss << count_clients + 1 << "." << time(NULL);
+                    std::string filename;
+                    ss >> filename;
+                    write_vector_to_file(results, filename);
+                    LOG(INFO) << "Data collecting finished";
+                    exit(0);
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(1));
                 clients_left = count_clients + 1;
                 master->broadcast_imm(IMM_CLIENT_WRITE_START);
                 timer->Start();
