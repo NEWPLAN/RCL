@@ -213,7 +213,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
             {
                 timer->Stop();
                 LOG(INFO) << "timer stopped";
-                std::cout << "(Master) ---------- epoch time: " << timer->MicroSeconds() << "us ----------" << std::endl;
+                LOG(WARNING) << "(Master)***** epoch time: " << timer->MicroSeconds() << "us";
                 results.push_back(timer->MicroSeconds());
                 if (results.size() >= 10)
                 {
@@ -222,7 +222,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
                     std::string filename;
                     ss >> filename;
                     write_vector_to_file(results, filename);
-                    LOG(INFO) << "Data collecting finished";
+                    LOG(WARNING) << "Data collecting finished";
                     exit(0);
                 }
                 std::this_thread::sleep_for(std::chrono::seconds(1));
