@@ -317,6 +317,11 @@ int main(int argc, char const *argv[])
         server_thread->join();
         client_thread->join();
     }
+    else
+    {
+        LOG(FATAL) << "unknown parameter: " << std::string(argv[1]);
+    }
+    
 
     return 0;
 }
