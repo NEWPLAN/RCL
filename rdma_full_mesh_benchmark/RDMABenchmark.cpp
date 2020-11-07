@@ -18,6 +18,7 @@ void write_vector_to_file(std::vector<T> vec, std::string filename)
     {
         f << i << std::endl;
     }
+    f.close();
 }
 
 void help(void)
