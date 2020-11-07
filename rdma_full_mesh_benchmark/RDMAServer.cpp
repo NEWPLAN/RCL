@@ -124,13 +124,14 @@ void RDMAServer::_init()
     TEST_NZ(rdma_bind_addr(this->rdma_adapter_.listener, (struct sockaddr *)&sin));
     TEST_NZ(rdma_listen(this->rdma_adapter_.listener, 100));
 
-    this->aggregator_thread = new std::thread([this]() { this->server_event_loops(); });
+    //this->aggregator_thread = new std::thread([this]() { this->server_event_loops(); });
+    this->server_event_loops();
 
     while (1)
     {
         int time_duration = 5;
         std::this_thread::sleep_for(std::chrono::seconds(time_duration));
-        this->show_performance(time_duration);
+        //this->show_performance(time_duration);
     }
 }
 
