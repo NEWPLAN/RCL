@@ -280,7 +280,7 @@ int main(int argc, char const *argv[])
             std::cout << "Cluster server ip: " << ips.back() << std::endl;
         }
         std::cout << "----------" << std::endl;
-        master_control(ips, master);
+        master_control(ips, master, data_size);
     }
     else if (strcmp(argv[1], "--cluster") == 0)
     {
