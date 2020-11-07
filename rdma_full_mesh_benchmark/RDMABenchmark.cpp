@@ -207,7 +207,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
         newplan::Timer *timer = new newplan::Timer();
         RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
-        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master, &results](ibv_wc *wc){
+        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master, &results, &data_size](ibv_wc *wc){
             clients_left--;
             if (clients_left == 0)
             {
@@ -218,7 +218,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
                 if (results.size() >= 10)
                 {
                     std::stringstream ss;
-                    ss << count_clients + 1 << "." << time(NULL);
+                    ss << count_clients + 1 << "." << data_size << "." << time(NULL);
                     std::string filename;
                     ss >> filename;
                     write_vector_to_file(results, filename);
