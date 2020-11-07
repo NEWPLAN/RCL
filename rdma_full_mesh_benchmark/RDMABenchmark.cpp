@@ -5,6 +5,7 @@
 #include "RDMAClient.h"
 #include "NetUtil.hpp"
 #include "timer.h"
+#include <sstream>
 
 void help(void)
 {
@@ -124,7 +125,7 @@ void client_functions(std::vector<std::string> ip)
  * @param master_ip master 的 ip
  * @return 没有返回值
  */
-void master_control(std::vector<std::string> ips, std::string master_ip)
+void master_control(std::vector<std::string> ips, std::string master_ip, uint32_t data_size = 536870908)
 {
     if (ips.empty() || master_ip.empty())
     {
@@ -175,10 +176,10 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
     // build control_client
     RDMAClient* control_client = new RDMAClient(master_ip, local_ip, CONTROL_PORT, control_queue);
     control_client->set_tos(tos_control);
-    control_client->bind_recv_imm(IMM_CLIENT_WRITE_START, [&client_job_queues, &jobs_left, &count_clients](ibv_wc *wc){
+    control_client->bind_recv_imm(IMM_CLIENT_WRITE_START, [&client_job_queues, &jobs_left, &count_clients, &data_size](ibv_wc *wc){
         for (auto &i:client_job_queues)
         {
-            i->push(comm_job(comm_job::WRITE, 536870908));
+            i->push(comm_job(comm_job::WRITE, data_size));
         }
         jobs_left = count_clients;
     });
@@ -198,7 +199,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip)
                 timer->Stop();
                 LOG(INFO) << "timer stopped";
                 std::cout << "(Master) ---------- epoch time: " << timer->MilliSeconds() << "ms ----------" << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(10));
+                std::this_thread::sleep_for(std::chrono::seconds(5));
                 clients_left = count_clients + 1;
                 master->broadcast_imm(IMM_CLIENT_WRITE_START);
                 timer->Start();
@@ -254,17 +255,27 @@ int main(int argc, char const *argv[])
         rclient = new RDMAClient(rdma_adapter);
         rclient->setup();
     }
-    else if (strcmp(argv[1], "--master") == 0)
+    else if (strcmp(argv[1], "--control") == 0)
     {
+        uint32_t data_size = 536870908; // 欲发送的数据块大小, in bytes
         std::string master = argv[2];
-        std::vector<std::string> ips;
-        if (strcmp(argv[3], "--cluster") != 0)
-        {
-            LOG(FATAL) << "error parameters";
-        }
         std::cout << "Master ip: " << master << std::endl;
-        for (int i = 4; i < argc; i++)
+        std::vector<std::string> ips;
+        for (int i = 2; i < argc; i++)
         {
+            string s = argv[i];
+            if (s == "--size")
+            {
+                std::stringstream ss;
+                ss << std::string(argv[i+1]);
+                ss >> data_size;
+                if (data_size <= 0)
+                {
+                    LOG(FATAL) << "error data size";
+                }
+                std::cout << "Data size: " << data_size << std::endl;
+                break;
+            }
             ips.emplace_back(argv[i]);
             std::cout << "Cluster server ip: " << ips.back() << std::endl;
         }
