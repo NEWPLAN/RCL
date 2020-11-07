@@ -250,6 +250,8 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
 int main(int argc, char const *argv[])
 { //./main self-ip, remote ip
     FLAGS_logtostderr = 1;
+    FLAGS_minloglevel = 1;
+
     google::InitGoogleLogging(argv[0]);
     if (argc < 2)
     {
