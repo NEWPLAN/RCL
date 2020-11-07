@@ -213,7 +213,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
             {
                 timer->Stop();
                 LOG(INFO) << "timer stopped";
-                LOG(WARNING) << "(Master)***** epoch time: " << timer->MicroSeconds() << "us";
+                //LOG(WARNING) << "(Master)***** epoch time: " << timer->MicroSeconds() << "us";
                 results.push_back(timer->MicroSeconds());
                 if (results.size() >= 1200)
                 {
