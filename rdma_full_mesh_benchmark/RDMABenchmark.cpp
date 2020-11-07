@@ -225,7 +225,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
                     LOG(WARNING) << "Data collecting finished";
                     exit(0);
                 }
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                //std::this_thread::sleep_for(std::chrono::seconds(1));
                 clients_left = count_clients + 1;
                 master->broadcast_imm(IMM_CLIENT_WRITE_START);
                 timer->Start();
