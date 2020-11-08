@@ -244,17 +244,17 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
         std::this_thread::sleep_for(std::chrono::seconds(10));
         clients_left = count_clients + 1;
         master->broadcast_imm(IMM_CLIENT_WRITE_START);
-        last_time = time(NULL);
         timer->Start();
-        LOG(INFO) << "timer started";
+        last_time = time(NULL);
+        LOG(WARNING) << "timer started";
 
     }
     while(true)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
-        if (is_master && time(NULL) - last_time >= 5) // 如果已经异常暂停
+        if (is_master && time(NULL) - last_time >= 10) // 如果已经异常暂停
         {
-            LOG(WARNING) << "no command send in last 5 sec, restarting...";
+            LOG(WARNING) << "no command send in last 10 sec, restarting...";
             clients_left = count_clients + 1;
             master->broadcast_imm(IMM_CLIENT_WRITE_START);
             last_time = time(NULL);
