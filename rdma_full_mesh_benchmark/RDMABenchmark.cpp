@@ -153,6 +153,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
     std::atomic<int> jobs_left; // 当前还没有完成发送的客户端
     std::atomic<int> clients_left; //当前还没有发送完成的客户机
     // 辨析: 一个机器上会有 n-1 个客户端. 一个客户机上所有的客户端发送完毕之后 (jobs_left == 0), 发消息给 master; master 收到所有客户机的消息之后 (clients_left == 0), 停止计时. 
+    std::atomic<int> last_time; // 用来检测测试是否异常停止
     const uint8_t tos_data = 64;
     const uint8_t tos_control = 128;
     std::vector<uint32_t> results;
@@ -180,6 +181,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
             {
                 // 如果所有客户端都完成了发送, 那么由 control_client 向 master 发送消息
                 control_queue->push(comm_job(comm_job::SEND_IMM, IMM_CLIENT_SEND_DONE));
+                LOG(WARNING) << "clients send done";
             }
         });
         new std::thread([rclient](){
@@ -202,18 +204,20 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
         control_client->setup();
     });
     // master
-    if (master_ip == local_ip)
+    bool is_master = (master_ip == local_ip);
+    if (is_master)
     {
         newplan::Timer *timer = new newplan::Timer();
         RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
-        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master, &results, &data_size](ibv_wc *wc){
+        master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master, &results, &data_size, &last_time](ibv_wc *wc){
             clients_left--;
             if (clients_left == 0)
             {
                 timer->Stop();
                 LOG(INFO) << "timer stopped";
-                //LOG(WARNING) << "(Master)***** epoch time: " << timer->MicroSeconds() << "us";
+                LOG(WARNING) << "(Master)***** epoch time: " << timer->MicroSeconds() << "us";
+                last_time = time(NULL);
                 results.push_back(timer->MicroSeconds());
                 if (results.size() >= 1200)
                 {
@@ -238,12 +242,23 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
         std::this_thread::sleep_for(std::chrono::seconds(10));
         clients_left = count_clients + 1;
         master->broadcast_imm(IMM_CLIENT_WRITE_START);
+        last_time = time(NULL);
         timer->Start();
         LOG(INFO) << "timer started";
+
     }
     while(true)
     {
-        std::this_thread::sleep_for(std::chrono::minutes(2));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        if (is_master && time(NULL) - last_time >= 10) // 如果已经异常暂停
+        {
+            LOG(WARNING) << "no command send in last 10 sec, restarting...";
+            clients_left = count_clients + 1;
+            master->broadcast_imm(IMM_CLIENT_WRITE_START);
+            last_time = time(NULL);
+            timer->Start();
+            LOG(INFO) << "timer started";
+        }
     }
 }
 
