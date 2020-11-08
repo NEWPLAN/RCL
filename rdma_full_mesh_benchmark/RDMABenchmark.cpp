@@ -204,11 +204,13 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
         control_client->setup();
     });
     // master
+    newplan::Timer *timer;
+    RDMAServer* master;
     bool is_master = (master_ip == local_ip);
     if (is_master)
     {
-        newplan::Timer *timer = new newplan::Timer();
-        RDMAServer* master = new RDMAServer("0.0.0.0", CONTROL_PORT);
+        timer = new newplan::Timer();
+        master = new RDMAServer("0.0.0.0", CONTROL_PORT);
         master->set_tos(tos_control);
         master->bind_recv_imm(IMM_CLIENT_SEND_DONE, [timer, &clients_left, count_clients, master, &results, &data_size, &last_time](ibv_wc *wc){
             clients_left--;
