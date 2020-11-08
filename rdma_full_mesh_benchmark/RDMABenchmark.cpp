@@ -181,7 +181,7 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
             {
                 // 如果所有客户端都完成了发送, 那么由 control_client 向 master 发送消息
                 control_queue->push(comm_job(comm_job::SEND_IMM, IMM_CLIENT_SEND_DONE));
-                LOG(WARNING) << "clients send done";
+                //LOG(WARNING) << "clients send done";
             }
         });
         new std::thread([rclient](){
@@ -252,12 +252,13 @@ void master_control(std::vector<std::string> ips, std::string master_ip, uint32_
     while(true)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
-        if (is_master && time(NULL) - last_time >= 10) // 如果已经异常暂停
+        if (is_master && time(NULL) - last_time >= 5) // 如果已经异常暂停
         {
-            LOG(WARNING) << "no command send in last 10 sec, restarting...";
+            LOG(WARNING) << "no command send in last 5 sec, restarting...";
             clients_left = count_clients + 1;
             master->broadcast_imm(IMM_CLIENT_WRITE_START);
             last_time = time(NULL);
+            timer->Stop();
             timer->Start();
             LOG(INFO) << "timer started";
         }
