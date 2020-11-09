@@ -13,6 +13,8 @@
 #include "rdma_adapter.h"
 
 #include "rdma_endpoint.h"
+#include "rdma_server.h"
+
 namespace newplan
 {
     void RDMAServer::run_async()
@@ -168,12 +170,13 @@ namespace newplan
         }
     }
 
-    void RDMAServer::start_service(RDMASession *sess)
+    void RDMAServer::start_service_single_channel(RDMASession *sess)
     {
         LOG(INFO) << "Server is starting the rdma service";
 
         struct ibv_wc wc;
         RDMAAdapter *data_ctx = sess->get_channel(DATA_CHANNEL)->get_context();
+        //RDMAAdapter *ctrl_ctx = sess->get_channel(CTRL_CHANNEL)->get_context();
 
         // Get my data plane memory information
         struct write_lat_mem *my_mem = (struct write_lat_mem *)data_ctx->ctx->ctrl_buf;
@@ -239,6 +242,92 @@ namespace newplan
                     LOG_EVERY_N(INFO, 100) << "Unknown opcode" << wc.opcode;
                 }
 
+            } while (!break_loops);
+        }
+
+        printf("Destroy IB resources\n");
+        data_ctx->destroy_ctx();
+    }
+
+    void RDMAServer::start_service(RDMASession *sess)
+    {
+        system("clear");
+        LOG(INFO) << "Server is starting the rdma service";
+        //start_service_single_channel(sess);
+
+        struct ibv_wc wc[2];
+        RDMAAdapter *data_ctx = sess->get_channel(DATA_CHANNEL)->get_context();
+        RDMAAdapter *ctrl_ctx = sess->get_channel(CTRL_CHANNEL)->get_context();
+
+        // Get my data plane memory information
+        struct write_lat_mem *my_mem = (struct write_lat_mem *)ctrl_ctx->ctx->ctrl_buf;
+        if (!data_ctx->init_data_mem(my_mem))
+        {
+            LOG(FATAL) << "Cannot init data memory";
+        }
+        data_ctx->print_mem(my_mem);
+
+        while (true)
+        {
+            // Post a receive request to receive the completion notification
+            if (!data_ctx->post_ctrl_recv())
+            {
+
+                LOG(FATAL) << "cannot post receive requests in data plane";
+            }
+
+            // Post a send request to send the memory information
+            if (!ctrl_ctx->post_ctrl_send())
+            {
+                LOG(FATAL) << "cannot post send request in control plane";
+            }
+
+            int break_loops = false;
+            do
+            {
+                if (!ctrl_ctx->wait_for_wc(&wc[0]) ||
+                    !data_ctx->wait_for_wc(&wc[1]))
+                { //poll completion queue in a blocking approach
+                    LOG(FATAL) << "Fail to get the completed send request";
+                }
+
+                for (int index = 0; index < 2; index++)
+                {
+                    if (wc[index].status != IBV_WC_SUCCESS)
+                    {
+                        LOG(FATAL) << "Error when polling work completion: "
+                                   << ibv_wc_status_str(wc[index].status);
+                    }
+
+                    switch (wc[index].opcode)
+                    {
+                    case IBV_WC_SEND:
+                    {
+                        LOG_EVERY_N(INFO, 100) << "[out] request: send";
+                        break;
+                    }
+                    case IBV_WC_RECV:
+                    {
+                        break_loops = true;
+                        LOG_EVERY_N(INFO, 100) << "[in ] request: Recv";
+                        break;
+                    }
+                    case IBV_WC_RDMA_WRITE:
+                    {
+                        LOG_EVERY_N(INFO, 100) << "[out] request: write";
+                        break;
+                    }
+                    case IBV_WC_RECV_RDMA_WITH_IMM:
+                    {
+                        break_loops = true;
+                        LOG_EVERY_N(INFO, 100) << "[in ] request: write_with_IMM, "
+                                               << ntohl(wc[index].imm_data);
+                        break;
+                    }
+                    default:
+                        LOG_EVERY_N(INFO, 100) << "Unknown opcode" << wc[index].opcode;
+                    }
+                }
             } while (!break_loops);
         }
 

@@ -179,7 +179,8 @@ bool RDMAAdapter::create_completion_queue(int num_cqe)
     // Create a completion queue
     ctx->cq = ibv_create_cq(ctx->ctx,
                             num_cqe, //ctx->dev_attr.max_cqe,
-                            NULL, ctx->channel, 0);
+                            NULL,
+                            ctx->channel, 0);
     if (!ctx->cq)
     {
         LOG(FATAL) << "Fail to create the completion queue";
@@ -197,17 +198,19 @@ bool RDMAAdapter::create_completion_queue(int num_cqe)
 bool RDMAAdapter::create_queue_pair(uint32_t num_sqe, uint32_t num_rqe)
 {
     struct ibv_qp_attr attr;
-    struct ibv_qp_init_attr init_attr = {
-        .send_cq = ctx->cq,
-        .recv_cq = ctx->cq,
-        .cap = {
-            .max_send_wr = num_sqe, //ctx->dev_attr.max_qp_wr,
-            .max_recv_wr = num_rqe, //ctx->dev_attr.max_qp_wr,
-            .max_send_sge = 1,
-            .max_recv_sge = 1,
-        },
-        .qp_type = IBV_QPT_RC,
-    };
+    struct ibv_qp_init_attr init_attr;
+    memset(&attr, 0, sizeof(attr));
+    memset(&init_attr, 0, sizeof(init_attr));
+
+    init_attr.send_cq = ctx->cq;
+    init_attr.recv_cq = ctx->cq;
+    init_attr.cap.max_send_wr = num_sqe; //ctx->dev_attr.max_qp_wr,
+    init_attr.cap.max_recv_wr = num_rqe; //ctx->dev_attr.max_qp_wr,
+    init_attr.cap.max_send_sge = 1;
+    init_attr.cap.max_recv_sge = 1;
+
+    init_attr.qp_type = IBV_QPT_RC;
+    init_attr.sq_sig_all = 1; //https://linux.die.net/man/3/ibv_post_send
 
     ctx->qp = ibv_create_qp(ctx->pd, &init_attr);
     if (!(ctx->qp))
@@ -436,16 +439,18 @@ void RDMAAdapter::print_mem(struct write_lat_mem *mem)
 // Return true on success.
 bool RDMAAdapter::post_ctrl_recv()
 {
-    struct ibv_sge list = {
-        .addr = (uintptr_t)(ctx->ctrl_buf),
-        .length = ctx->ctrl_buf_size,
-        .lkey = ctx->ctrl_mr->lkey};
+    struct ibv_sge list;
+    memset(&list, 0, sizeof(list));
+    list.addr = (uintptr_t)(ctx->ctrl_buf);
+    list.length = ctx->ctrl_buf_size;
+    list.lkey = ctx->ctrl_mr->lkey;
 
-    struct ibv_recv_wr wr = {
-        .wr_id = RECV_WRID,
-        .sg_list = &list,
-        .num_sge = 1,
-    };
+    struct ibv_recv_wr wr;
+
+    memset(&wr, 0, sizeof(wr));
+    wr.wr_id = RECV_WRID;
+    wr.sg_list = &list;
+    wr.num_sge = 1;
 
     struct ibv_recv_wr *bad_wr;
     return ibv_post_recv(ctx->qp, &wr, &bad_wr) == 0;
@@ -455,17 +460,21 @@ bool RDMAAdapter::post_ctrl_recv()
 // Return true on success.
 bool RDMAAdapter::post_ctrl_send()
 {
-    struct ibv_sge list = {
-        .addr = (uintptr_t)(ctx->ctrl_buf),
-        .length = ctx->ctrl_buf_size,
-        .lkey = ctx->ctrl_mr->lkey};
+    struct ibv_sge list;
+    memset(&list, 0, sizeof(list));
 
-    struct ibv_send_wr wr = {
-        .wr_id = SEND_WRID,
-        .sg_list = &list,
-        .num_sge = 1,
-        .opcode = IBV_WR_SEND,
-        .send_flags = ctx->send_flags};
+    list.addr = (uintptr_t)(ctx->ctrl_buf);
+    list.length = ctx->ctrl_buf_size;
+    list.lkey = ctx->ctrl_mr->lkey;
+
+    struct ibv_send_wr wr;
+    memset(&wr, 0, sizeof(wr));
+
+    wr.wr_id = SEND_WRID,
+    wr.sg_list = &list,
+    wr.num_sge = 1,
+    wr.opcode = IBV_WR_SEND,
+    wr.send_flags = ctx->send_flags;
 
     struct ibv_send_wr *bad_wr;
     return ibv_post_send(ctx->qp, &wr, &bad_wr) == 0;
@@ -615,6 +624,7 @@ bool RDMAAdapter::wait_for_wc(struct ibv_wc *wc)
 {
     while (true)
     {
+        LOG_EVERY_N(INFO, 1000000) << "in poll CQ()";
         int ne = ibv_poll_cq(ctx->cq, 1, wc);
         if (ne < 0)
         {
@@ -666,7 +676,7 @@ bool RDMAAdapter::modify_qp_to_rtr(struct write_lat_dest *rem_dest)
     // Packet Sequence Number of the received packets
     attr.rq_psn = rem_dest->psn;
     attr.max_dest_rd_atomic = 1;
-    attr.min_rnr_timer = 20; //12; //https://www.rdmamojo.com/2013/01/12/ibv_modify_qp/
+    attr.min_rnr_timer = 12; //12; //https://www.rdmamojo.com/2013/01/12/ibv_modify_qp/
 
     // Address vector
     attr.ah_attr.is_global = 0;
@@ -709,7 +719,7 @@ bool RDMAAdapter::modify_qp_to_rts(struct write_lat_dest *my_dest)
     attr.qp_state = IBV_QPS_RTS;
     // The minimum time that a QP waits for ACK/NACK from remote QP
     // https://www.rdmamojo.com/2013/01/12/ibv_modify_qp/
-    attr.timeout = 14; //14;
+    attr.timeout = 12; //14;
     attr.retry_cnt = 7;
     attr.rnr_retry = 7;
     attr.sq_psn = my_dest->psn;

@@ -17,8 +17,8 @@ public:
 public:
     bool do_connect(bool);
 
-    void connect_active();
-    void connect_passive();
+    void connect_active(RDMAChannel *);
+    void connect_passive(RDMAChannel *);
 
     RDMAChannel *get_channel(int ctype);
 

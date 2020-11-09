@@ -62,28 +62,37 @@ bool RDMASession::do_connect(bool is_server)
     ctrl_channel = new RDMAChannel(this, 96);
 
     LOG(INFO) << "Building data channel";
-    data_channel = new RDMAChannel(this, 0);
+    data_channel = new RDMAChannel(this, 96);
 
     //std::this_thread::sleep_for(std::chrono::seconds(10));
 
     if (is_server)
     {
-        connect_passive();
-        LOG(INFO) << "Has connected to the client!";
+        connect_passive(data_channel);
+        LOG(INFO) << "Data Channel has connected to the client!";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        connect_passive(ctrl_channel);
+        LOG(INFO) << "Ctrl Channel has connected to the client!";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
     else
     {
-        connect_active();
-        LOG(INFO) << "Has connected to the Server!";
+        connect_active(data_channel);
+        LOG(INFO) << "Data Channel has connected to the Server!";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        connect_active(ctrl_channel);
+        LOG(INFO) << "Ctrl Channel has connected to the Server!";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+
     return true;
 }
 
-void RDMASession::connect_active() // for client
+void RDMASession::connect_active(RDMAChannel *channel) // for client
 {
     LOG(INFO) << "client actively connects to server";
 
-    RDMAAdapter *ctx = data_channel->get_context();
+    RDMAAdapter *ctx = channel->get_context();
 
     struct write_lat_dest my_dest, rem_dest;
     // Get my destination information
@@ -152,11 +161,11 @@ void RDMASession::connect_active() // for client
     }
 }
 
-void RDMASession::connect_passive() // for server
+void RDMASession::connect_passive(RDMAChannel *channel) // for server
 {
     LOG(INFO) << "Server is connecting to client, passively";
 
-    RDMAAdapter *ctx = data_channel->get_context();
+    RDMAAdapter *ctx = channel->get_context();
 
     struct write_lat_dest my_dest, rem_dest;
     // Get my destination information

@@ -16,6 +16,7 @@
 #include <glog/logging.h>
 
 #include "rdma_endpoint.h"
+#include "rdma_client.h"
 namespace newplan
 {
 
@@ -230,7 +231,7 @@ namespace newplan
         }
     }
 
-    void RDMAClient::start_service(RDMASession *sess)
+    void RDMAClient::start_service_single_channel(RDMASession *sess)
     {
         LOG(INFO) << "Starting service";
         RDMAAdapter *data_ctx = sess->get_channel(DATA_CHANNEL)->get_context();
@@ -336,4 +337,137 @@ namespace newplan
         printf("Destroy IB resources\n");
         data_ctx->destroy_ctx();
     }
+
+    void RDMAClient::start_service(RDMASession *sess)
+    {
+        system("clear");
+        LOG(INFO) << "Starting service";
+        RDMAAdapter *data_ctx = sess->get_channel(DATA_CHANNEL)->get_context();
+        RDMAAdapter *ctrl_ctx = sess->get_channel(CTRL_CHANNEL)->get_context();
+
+        //start_service_single_channel(sess);
+
+        bool use_event = false;
+        struct ibv_wc wc[2];
+
+        int first_epoch = true;
+        //struct write_lat_mem *rem_mem = nullptr;
+        struct write_lat_mem rem_mem;
+        memset(&rem_mem, 0, sizeof(rem_mem));
+
+        int data_inflight = 0;
+
+        while (true)
+        {
+            // Wait for completion events.
+            // If we use busy polling, this step is skipped.
+            if (use_event)
+            {
+                struct ibv_cq *ev_cq;
+                void *ev_ctx;
+
+                LOG(FATAL) << "Never come here";
+
+                if (ibv_get_cq_event(data_ctx->ctx->channel, &ev_cq, &ev_ctx))
+                {
+                    fprintf(stderr, "Fail to get cq_event\n");
+                    exit(-1);
+                }
+
+                if (ev_cq != data_ctx->ctx->cq)
+                {
+                    fprintf(stderr, "CQ event for unknown CQ %p\n", ev_cq);
+                    exit(-1);
+                }
+
+                ibv_ack_cq_events(data_ctx->ctx->cq, 1);
+
+                if (ibv_req_notify_cq(data_ctx->ctx->cq, 0))
+                {
+                    fprintf(stderr, "Cannot request CQ notification\n");
+                    exit(-1);
+                }
+            }
+
+            // Empty the completion queue
+            while (true)
+            {
+                if (data_inflight && !data_ctx->wait_for_wc(&wc[1]))
+                {
+                    LOG(FATAL) << "Fail to get the completed send request";
+                }
+
+                if (data_inflight && wc[1].status != IBV_WC_SUCCESS)
+                {
+                    LOG(FATAL) << "Error when polling work completion: "
+                               << ibv_wc_status_str(wc[1].status);
+                }
+
+                if (!ctrl_ctx->wait_for_wc(&wc[0]))
+                { //poll completion queue in a blocking approach
+                    LOG(FATAL) << "Fail to get the completed send request";
+                }
+
+                if (wc[0].status != IBV_WC_SUCCESS)
+                {
+                    LOG(FATAL) << "Error when polling work completion: "
+                               << ibv_wc_status_str(wc[0].status);
+                }
+
+                for (int index = 0; index < 1 + data_inflight; index++)
+                {
+
+                    switch (wc[index].opcode)
+                    {
+                    case IBV_WC_SEND:
+                    {
+                        LOG_EVERY_N(INFO, 100) << "[out] request: send ";
+                        break;
+                    }
+                    case IBV_WC_RECV:
+                    {
+                        LOG_EVERY_N(INFO, 100) << "[in ] request: Recv";
+
+                        if (!ctrl_ctx->post_ctrl_recv())
+                        { // Post the receive request to receive memory information from the server
+                            LOG(FATAL) << "Fail to post the receive request";
+                        }
+                        if (first_epoch)
+                        { // server send a message to client to init a flow
+                            first_epoch = false;
+                            // Get remote data plane memory information
+                            rem_mem = *((struct write_lat_mem *)ctrl_ctx->ctx->ctrl_buf);
+                            ctrl_ctx->print_mem(&rem_mem);
+                        }
+                        // Trigger the next write request
+                        if (!data_ctx->post_data_write_with_imm(&rem_mem,
+                                                                data_ctx->ctx->data_buf_size))
+                        {
+                            LOG(FATAL) << "Fail to post write request";
+                        }
+                        break;
+                    }
+                    case IBV_WC_RDMA_WRITE:
+                    {
+                        LOG_EVERY_N(INFO, 100) << "[out] request: write";
+                        break;
+                    }
+                    case IBV_WC_RECV_RDMA_WITH_IMM:
+                    {
+                        LOG_EVERY_N(INFO, 100) << "[in ] request: write_with_IMM, "
+                                               << ntohl(wc[index].imm_data);
+                        break;
+                    }
+                    default:
+                        LOG(INFO) << "Unknown opcode" << wc[index].opcode;
+                    }
+                }
+                data_inflight = 1;
+            }
+        }
+
+        printf("Destroy IB resources\n");
+        data_ctx->destroy_ctx();
+    }
+
 }; // namespace newplan

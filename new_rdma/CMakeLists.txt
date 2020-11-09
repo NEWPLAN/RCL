@@ -11,8 +11,8 @@ SET(CMAKE_CXX_COMPILER "g++")
 
 set(CMAKE_CXX_STANDARD 20)
 #set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE release)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2a")
+set(CMAKE_BUILD_TYPE debug)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 set(SUB_MODULE_PATH "./src")
 #set(CMAKE_CXX_STANDARD 20) # 设置std=c++2a
@@ -20,7 +20,7 @@ set(SUB_MODULE_PATH "./src")
 
 # 设置debug或者release的编译参数
 set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb -fPIC")
-set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -Os -Wall -fPIC")
+set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O0 -Wall -fPIC")
 
 # collect all message to "SRC_LIST" <-- ./*.cpp
 aux_source_directory(./test_case SRC_LIST)

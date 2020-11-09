@@ -6,12 +6,6 @@
 
 namespace newplan
 {
-    // static char *RDMA_TYPE_STRING[] =
-    //     {
-    //         (char *)"Unknown Type",
-    //         (char *)"Server",
-    //         (char *)"Client",
-    //         (char *)"Undefined"};
 
     enum EndType
     {
@@ -36,8 +30,8 @@ namespace newplan
         virtual void after_connect() = 0;
 
         virtual void start_service(RDMASession *sess) = 0;
-
         virtual void start_service_default(RDMASession *sess) = 0;
+        virtual void start_service_single_channel(RDMASession *sess) = 0;
 
     public:
         void store_session(RDMASession *new_sees)
@@ -83,68 +77,8 @@ namespace newplan
         EndType type_ = ENDPOINT_UNKNOWN;
         short socket_fd = 0;
         std::vector<RDMASession *> rdma_session;
-
-    public:
     };
 
-    class RDMAServer : public RDMAEndpoint
-    {
-    public:
-        explicit RDMAServer(short listen_port,
-                            std::string ip_addr = "0.0.0.0")
-            : RDMAEndpoint(ENDPOINT_SERVER)
-        {
-            server_ip_ = ip_addr;
-            port_ = listen_port;
-        }
-        virtual ~RDMAServer() {}
-
-        virtual void run_async() override;
-        virtual void run() override;
-
-        virtual void before_connect() override;
-        virtual void do_connect() override;
-        virtual void after_connect() override;
-
-        virtual void start_service(RDMASession *sess) override;
-        virtual void start_service_default(RDMASession *sess) override;
-
-    private:
-        std::string server_ip_;
-        short port_;
-        std::vector<std::thread *> connection_threads;
-    };
-
-    class RDMAClient : public RDMAEndpoint
-    {
-    public:
-        explicit RDMAClient(short port,
-                            std::string ip_addr)
-            : RDMAEndpoint(ENDPOINT_CLIENT)
-        {
-            server_ip_ = ip_addr;
-            port_ = port;
-        }
-        virtual ~RDMAClient() {}
-
-        virtual void run_async() override;
-        virtual void run() override;
-
-        virtual void before_connect() override;
-        virtual void do_connect() override;
-        virtual void after_connect() override;
-
-        virtual void start_service(RDMASession *sess) override;
-        virtual void start_service_default(RDMASession *sess) override;
-
-    private:
-        PreConnector *pre_connecting();
-
-    private:
-        std::string server_ip_;
-        short port_;
-        bool is_connected_ = false;
-    };
 }; // namespace newplan
 
 #endif
