@@ -15,3 +15,7 @@ bug report:
 
 TBA:
 	slacing window.
+# run:
+在每一个full-mesh-benchmark中创建一个data目录
+将该benchmark.py放到data里面
+在16个节点一起运行：python3 benchmark.py
