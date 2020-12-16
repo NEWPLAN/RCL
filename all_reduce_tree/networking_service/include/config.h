@@ -177,6 +177,8 @@ public:
                     all_reduce = RING_ALLREDUCE;
                 else if (topology == "tree")
                     all_reduce = TREE_ALLREDUCE;
+                else if (topology == "server-client")
+                    all_reduce = SERVER_CLIENT;
                 break;
             }
             case 262:
@@ -259,6 +261,8 @@ public:
         std::string my_ip = get_local_ip();
         if (my_ip == ip)
         {
+            server_name = ip;
+            serve_as_client = false;
             LOG(WARNING) << "[invalid] You are specifying you own as the server";
             return;
         }
@@ -293,17 +297,30 @@ private:
             LOG(WARNING) << "You must explicitly speficy the # of senders when using the single thread model to recv data";
             continue_check = false;
         }
-        if (continue_check && serve_as_client && cluster.size() != 0)
-        {
-            LOG(WARNING) << "You cannot enable Full-Mesh and 1:N modes together";
-            continue_check = false;
-        }
+        // if (continue_check && serve_as_client && cluster.size() != 0)
+        // {
+        //     LOG(WARNING) << "You cannot enable Full-Mesh and 1:N modes together";
+        //     continue_check = false;
+        // }
 
-        if (all_reduce == TREE_ALLREDUCE && tree_width <= 0)
+        if (continue_check && all_reduce == TREE_ALLREDUCE && tree_width <= 0)
         {
             LOG(WARNING) << "In tree allreduce mode, tree_width(" << tree_width << ") should be > 0.";
             continue_check = false;
         }
+
+        if (continue_check && all_reduce == SERVER_CLIENT)
+        {
+            if (server_name == "" && serve_as_client == true)
+                LOG(FATAL) << "You mush speficy master node";
+            std::string this_ip = get_local_ip();
+            if (this_ip == server_name)
+                serve_as_client = false;
+            else
+                serve_as_client = true;
+        }
+        //print_config();
+
         if (!continue_check)
         {
             print_config();

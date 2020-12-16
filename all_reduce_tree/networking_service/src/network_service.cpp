@@ -99,7 +99,7 @@ namespace communication
     int NetworkingService::server_client_service()
     {
         CHECK(is_initialized) << "Please initialize the service before runing";
-        LOG(INFO) << "In the full mesh service";
+        LOG(INFO) << "In the server-client service";
         RDMAEndNode *npoint = nullptr;
         if (conf.serve_as_client)
         {

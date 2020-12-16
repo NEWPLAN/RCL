@@ -182,6 +182,9 @@ void RDMAServer::post_connect()
     case DOUBLE_BINARY_TREE_ALLREDUCE:
         double_binary_tree_allreduce();
         break;
+    case SERVER_CLIENT:
+        full_mesh_allreduce();
+        break;
     default:
         LOG(FATAL) << "UNKNOWN allreduce, you should speficy the topology with flag: --topo";
     }
