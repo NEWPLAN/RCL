@@ -54,9 +54,6 @@ int RDMASession::query_status(struct ibv_wc *wc, int num)
 void RDMASession::run_tests_recv_side()
 {
     LOG(INFO) << " [debug] two channel ";
-    //struct resources *res = adpter->get_context();
-
-    //char temp_char;
 
     int index = 0;
     sync_data((char *)"0", "sync error before RDMA ops");
@@ -135,8 +132,6 @@ void RDMASession::run_tests_send_side()
         case IBV_WC_RECV:
         {
             LOG_EVERY_N(INFO, SHOWN_LOG_EVERN_N) << "[in ][client] request: Recv";
-            //adpter->post_ctrl_recv(index);
-            //adpter->post_data_write_with_imm(index, 0xff00 + index);
             pull_ctrl(index);
             push_data(index);
             break;
@@ -150,10 +145,7 @@ void RDMASession::run_tests_send_side()
         {
             LOG_EVERY_N(INFO, SHOWN_LOG_EVERN_N) << "[in ][client] request: write_with_IMM, "
                                                  << wc.imm_data;
-            // adpter->post_ctrl_recv(index);
-            // adpter->post_ctrl_send(index);
             pull_ctrl(index);
-            //push_ctrl(index);
             push_data(index);
             break;
         }

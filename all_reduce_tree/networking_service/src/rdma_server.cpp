@@ -493,6 +493,7 @@ int RDMAServer::full_mesh_allreduce()
     do
     {
         do_reduce(allreduce_group);
+        // summation;
         broadcast(allreduce_group);
     } while (true);
     return 0;

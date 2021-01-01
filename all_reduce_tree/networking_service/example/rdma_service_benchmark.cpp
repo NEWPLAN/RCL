@@ -1,20 +1,58 @@
-#include <iostream>
-#include <glog/logging.h>
-
-#include "rdma_base.h"
-#include "rdma_adapter.h"
-#include "config.h"
-
-#include "endnode.h"
-#include "rdma_client.h"
-#include "rdma_server.h"
-#include <vector>
-#include <thread>
-#include "utils/net_util.h"
 #include "network_service.h"
+#include "utils/logging.h"
+
+bool LogRegister::registerted = false;
+
+#include <future>
+#include <thread>
+#include <chrono>
+
+bool is_prime(int x)
+{
+    for (int i = 2; i < x; i++)
+    {
+        if (x % i == 0)
+            return false;
+    }
+    while (true)
+    {
+        LOG(INFO) << "is_prime sleep in this threads";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    return true;
+}
+
+int async_call_test()
+{
+    std::vector<std::future<bool>> post_connect_tasks;
+    for (int index = 0; index < 10; index++)
+        post_connect_tasks.push_back(std::async([](int index_) -> bool {
+            while (true)
+            {
+                LOG(INFO) << " sleep in thread: " << index_;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            return 0;
+        },
+                                                index));
+    LOG(INFO) << "please wait";
+    std::chrono::milliseconds span(100);
+
+    for (auto &fut : post_connect_tasks)
+    {
+        if (fut.wait_for(span) != std::future_status::ready)
+            std::cout << ".";
+    }
+
+    std::cout << ".";
+    std::cout << std::endl;
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
+    //async_call_test();
+    //return LogRegister::log_test();
     using NetService = communication::NetworkingService;
     NetService *ns = new NetService();
     ns->init_service(argc, argv);

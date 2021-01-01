@@ -101,42 +101,6 @@ void RDMAClient::post_connect()
     client_sess->session_init();
     client_sess->run_tests_send_side();
     LOG(FATAL) << "Error of in the client side";
-    if (0)
-    { // move to the tread queue;
-        NPRDMAPreConnector *pre_con = new NPRDMAPreConnector(this->root_sock,
-                                                             this->conf_.server_name,
-                                                             this->conf_.tcp_port);
-
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            NPRDMAdapter *adpter = new NPRDMAdapter(this->conf_);
-            adpter->resources_init(pre_con);
-            adpter->resources_create();
-            adpter->connect_qp();
-            LOG(INFO) << "Has connected with server: " << pre_con->get_peer_ip();
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-#ifndef DEBUG_TWO_CHANNEL
-            client_test(adpter);
-#else
-            two_channel_test(adpter);
-#endif
-        }
-
-        char local[128] = {0};
-        char remote[128] = {0};
-        int index = 0;
-        do
-        {
-            memset(local, 0, 128);
-            memset(remote, 0, 128);
-            sprintf(local, "[%d] Hello from client.", index++);
-            pre_con->sock_sync_data(48, local, remote);
-            LOG(INFO) << "exchange with: [" << this->conf_.server_name
-                      << ":" << this->conf_.tcp_port << "]" << remote;
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-
-        } while (true);
-    }
 }
 
 void RDMAClient::two_channel_test(NPRDMAdapter *adpter)

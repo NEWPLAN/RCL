@@ -54,3 +54,6 @@ benchmark提供了5种运行模式，分别是  ```server-client``` 模式, ```f
     >  #使用例子：(每个物理节点都允许同样的命令)
     >
     > ./build/rdma_service_benchmark --msg-size=400000 --topo dbt  --single-recv --cluster 12.12.12.111 12.12.12.112 12.12.12.113 12.12.12.114
+
+    启用更多的LOG信息：
+    GLOG_v
