@@ -8,7 +8,10 @@
 #include <unistd.h>
 #include <unordered_map>
 #include "util/timer_record.h"
+#include "util/thread_pool.hpp"
 #include <omp.h>
+
+#define PARALLEL_THREAD 14
 
 namespace summation
 {
@@ -23,6 +26,7 @@ namespace summation
         TaskQueue *out_queue = new TaskQueue(1024);
         comm_channel.push_back(in_queue);
         comm_channel.push_back(out_queue);
+        thread_pool = new newplan::ThreadPool(PARALLEL_THREAD);
     }
 
     void *SummationService::register_memory(uint64_t mem_size, enum DataType dtype)
@@ -72,11 +76,25 @@ namespace summation
             }
         }
     }
+
     void SummationService::reduce_sum(float **src, int num_blocks, size_t num_elements, enum DataType dtype)
+    {
+        for (int i = 0; i < num_elements; i += num_elements/PARALLEL_THREAD)
+        {
+            int end_element = i + num_elements/PARALLEL_THREAD;
+            thread_pool->runTask([=](){
+                reduce_sum(src, num_blocks, i, end_element, dtype);
+            });
+        }
+        thread_pool->waitWorkComplete();
+    }
+
+
+    // [start, end)
+    void SummationService::reduce_sum(float **src, int num_blocks, size_t start_element, size_t end_element, enum DataType dtype)
     {
         if (dtype != FLOAT32)
             printf("[Warning]: current can use FLOAT32 for data type\n");
-#define PARALLEL_THREAD 14
         float *dst = src[0];
         float *src0 = src[0];
         float *src1 = src[1];
@@ -103,8 +121,9 @@ namespace summation
         {
         case 2:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i];
             }
@@ -112,8 +131,9 @@ namespace summation
         }
         case 3:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i];
             }
@@ -121,8 +141,9 @@ namespace summation
         }
         case 4:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i];
             }
@@ -130,8 +151,9 @@ namespace summation
         }
         case 5:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i];
             }
@@ -139,8 +161,9 @@ namespace summation
         }
         case 6:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i];
             }
@@ -148,8 +171,9 @@ namespace summation
         }
         case 7:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i];
             }
@@ -157,8 +181,9 @@ namespace summation
         }
         case 8:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i];
             }
@@ -166,8 +191,9 @@ namespace summation
         }
         case 9:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i];
             }
@@ -175,8 +201,9 @@ namespace summation
         }
         case 10:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i];
             }
@@ -184,8 +211,9 @@ namespace summation
         }
         case 11:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i];
             }
@@ -193,8 +221,9 @@ namespace summation
         }
         case 12:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i];
             }
@@ -202,8 +231,9 @@ namespace summation
         }
         case 13:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i];
             }
@@ -211,8 +241,9 @@ namespace summation
         }
         case 14:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i] + src13[i];
             }
@@ -220,8 +251,9 @@ namespace summation
         }
         case 15:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i] + src13[i] + src14[i];
             }
@@ -229,8 +261,9 @@ namespace summation
         }
         case 16:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i] + src13[i] + src14[i] + src15[i];
             }
@@ -238,8 +271,9 @@ namespace summation
         }
         case 17:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i] + src13[i] + src14[i] + src15[i] + src16[i];
             }
@@ -247,8 +281,9 @@ namespace summation
         }
         case 18:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i] + src13[i] + src14[i] + src15[i] + src16[i] + src17[i];
             }
@@ -256,8 +291,9 @@ namespace summation
         }
         case 19:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i] + src13[i] + src14[i] + src15[i] + src16[i] + src17[i] + src18[i];
             }
@@ -265,8 +301,9 @@ namespace summation
         }
         case 20:
         {
-#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
-            for (size_t i = 0; i < num_elements; ++i)
+//#pragma omp parallel for simd num_threads(PARALLEL_THREAD)
+#pragma omp simd
+            for (size_t i = start_element; i < end_element; ++i)
             {
                 dst[i] = src0[i] + src1[i] + src2[i] + src3[i] + src4[i] + src5[i] + src6[i] + src7[i] + src8[i] + src9[i] + src10[i] + src11[i] + src12[i] + src13[i] + src14[i] + src15[i] + src16[i] + src17[i] + src18[i] + src19[i];
             }
