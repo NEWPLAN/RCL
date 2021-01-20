@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <iostream>
 #include "util/spsc_queue.h"
-#include "util/thread_pool.hpp"
 #include <vector>
 #include <thread>
 #include <glog/logging.h>
@@ -52,7 +51,6 @@ namespace summation
         void *register_memory(uint64_t mem_size, enum DataType dtype = FLOAT32);
         void deregister_memory(void *, enum DataType dtype = FLOAT32);
         void reduce_sum(float **, int, size_t, enum DataType dtype = FLOAT32);
-        void reduce_sum(float **, int, size_t, size_t, enum DataType dtype = FLOAT32);
         void *get_mem_buffer(int index = 0);
 
     public:
@@ -135,7 +133,6 @@ namespace summation
 
         std::vector<TaskQueue *> comm_channel;
         std::thread *bg_thread = nullptr;
-        newplan::ThreadPool *thread_pool = nullptr;
     };
 } // namespace summation
 #endif /* __NEWPLAN_SUMMATION_SERVICE_H__*/
