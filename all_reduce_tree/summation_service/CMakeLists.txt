@@ -23,7 +23,7 @@ set(SUB_MODULE_PATH "./lib")
 
 # 设置debug或者release的编译参数
 set(CMAKE_CXX_FLAGS_DEBUG "${CXXFLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wall -Wextra -g -ggdb -fPIC -fopenmp")
-set(CMAKE_CXX_FLAGS_RELEASE "${CXXFLAGS} ${CMAKE_CXX_FLAGS_RELEASE} -Os -Wall -Wextra -fPIC -fopenmp")
+set(CMAKE_CXX_FLAGS_RELEASE "${CXXFLAGS} ${CMAKE_CXX_FLAGS_RELEASE} -O2 -Wall -Wextra -fPIC -fopenmp -mavx2 -fopt-info")
 
 # collect all message to "SRC_LIST" <-- ./*.cpp
 aux_source_directory(./example SRC_LIST)
