@@ -19,7 +19,7 @@ private:
             return 1;
         LogRegister::registerted = true;
 
-        char *LOG_LEVEL = getenv("LOG-LEVEL");
+        char *LOG_LEVEL = getenv("RCL_MAX_VLOG_LEVEL");
         if (LOG_LEVEL != NULL && LOG_LEVEL != nullptr)
         {
             log_level = atoi(LOG_LEVEL);

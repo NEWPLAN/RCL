@@ -1,8 +1,10 @@
 #include "rdma_adapter.h"
+#include "config.h"
+#include <chrono>
+#include <fcntl.h>
 #include <glog/logging.h>
 #include <thread>
-#include <chrono>
-#include "config.h"
+#include <unistd.h>
 
 int NPRDMAdapter::poll_completion(struct ibv_wc &wc)
 {
@@ -595,6 +597,18 @@ int NPRDMAdapter::resources_create()
     if (config.use_event && ibv_req_notify_cq(res.cq, 0))
     {
         LOG(FATAL) << "Cannot request CQ notification";
+    }
+    if (config.use_event)
+    {
+        /* The following code will be called only once, after the Completion Event Channel 
+was created，to change the blocking mode of the completion channel */
+        int flags = fcntl(this->res.channel->fd, F_GETFL);
+        rc = fcntl(this->res.channel->fd, F_SETFL, flags | O_NONBLOCK);
+        if (rc < 0)
+        {
+            LOG(FATAL) << "error of  change file descriptor of Completion Event Channel";
+        }
+        LOG(INFO) << "Using epoll to listen the channel event";
     }
 
     /* allocate the memory buffer that will hold the data */

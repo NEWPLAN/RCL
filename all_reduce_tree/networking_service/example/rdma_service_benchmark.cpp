@@ -3,9 +3,9 @@
 
 bool LogRegister::registerted = false;
 
+#include <chrono>
 #include <future>
 #include <thread>
-#include <chrono>
 
 bool is_prime(int x)
 {
@@ -24,16 +24,17 @@ bool is_prime(int x)
 
 int async_call_test()
 {
-    std::vector<std::future<bool>> post_connect_tasks;
+    std::vector<std::future<bool> > post_connect_tasks;
     for (int index = 0; index < 10; index++)
-        post_connect_tasks.push_back(std::async([](int index_) -> bool {
-            while (true)
-            {
-                LOG(INFO) << " sleep in thread: " << index_;
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
-            return 0;
-        },
+        post_connect_tasks.push_back(std::async([](int index_) -> bool
+                                                {
+                                                    while (true)
+                                                    {
+                                                        LOG(INFO) << " sleep in thread: " << index_;
+                                                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                                                    }
+                                                    return 0;
+                                                },
                                                 index));
     LOG(INFO) << "please wait";
     std::chrono::milliseconds span(100);
@@ -52,7 +53,7 @@ int async_call_test()
 int main(int argc, char *argv[])
 {
     //async_call_test();
-    //return LogRegister::log_test();
+    LogRegister::log_test();
     using NetService = communication::NetworkingService;
     NetService *ns = new NetService();
     ns->init_service(argc, argv);

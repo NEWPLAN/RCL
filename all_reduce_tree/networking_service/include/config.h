@@ -1,15 +1,15 @@
 #ifndef __NEWPLAN_RDMA_CONFIG_H__
 #define __NEWPLAN_RDMA_CONFIG_H__
-#include <cstdlib>
-#include <cstdio>
-#include <getopt.h>
-#include <string.h>
-#include <iostream>
 #include "utils/net_util.h"
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <getopt.h>
+#include <glog/logging.h>
+#include <iostream>
+#include <string.h>
 #include <string>
 #include <vector>
-#include <algorithm>
-#include <glog/logging.h>
 
 #define no_argument 0
 #define required_argument 1
@@ -178,7 +178,10 @@ public:
                 else if (topology == "tree")
                     all_reduce = TREE_ALLREDUCE;
                 else if (topology == "server-client")
+                {
+                    VLOG(2) << "using topology: " << topology;
                     all_reduce = SERVER_CLIENT;
+                }
                 break;
             }
             case 262:
@@ -236,6 +239,9 @@ public:
             break;
         case RING_ALLREDUCE:
             std::cout << " Ring AllReduce" << std::endl;
+            break;
+        case SERVER_CLIENT:
+            std::cout << " Server-client" << std::endl;
             break;
         default:
             std::cout << "Unknown all reduce type" << std::endl;
@@ -347,6 +353,6 @@ public:
     int service_type = 0;                              /*service type: Full_Mesh, Server_Cient*/
     enum AllReduceType all_reduce = UNKNOWN_ALLREDUCE; /*Allreduce type, support for tree, ring,and full_mesh*/
     int tree_width = 0;                                /*the tree allreduce width*/
-    std::vector<std::vector<std::string>> sub_groups;  /*allreduce group for tree*/
+    std::vector<std::vector<std::string> > sub_groups; /*allreduce group for tree*/
 };
 #endif

@@ -1,23 +1,23 @@
 
-#include <thread>
+#include "rdma_server.h"
 #include <chrono>
 #include <glog/logging.h>
-#include "rdma_server.h"
+#include <thread>
 
 #include "ip_qos_helper.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <linux/ip.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
+#include "config.h"
 #include "pre_connector.h"
 #include "rdma_adapter.h"
-#include "config.h"
 #include "rdma_session.h"
 #include <queue>
 
@@ -53,6 +53,7 @@ void RDMAServer::pre_connect()
 void RDMAServer::connecting()
 {
 
+    conf_.print_config();
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
@@ -208,51 +209,52 @@ void RDMAServer::handle_with_new_connect(int sock,
     }
     else
     { // move to the tread queue;
-        auto connection_thread = new std::thread([=]() {
-            RDMASession *server_sess = RDMASession::new_rdma_session(sock,
-                                                                     client_ip,
-                                                                     client_port,
-                                                                     conf_);
-            server_sess->session_init();
-            server_sess->run_tests_recv_side();
-            LOG(FATAL) << "Error of in the server side";
-            if (0)
-            { // for debug, would never use it again.
+        auto connection_thread = new std::thread([=]()
+                                                 {
+                                                     RDMASession *server_sess = RDMASession::new_rdma_session(sock,
+                                                                                                              client_ip,
+                                                                                                              client_port,
+                                                                                                              conf_);
+                                                     server_sess->session_init();
+                                                     server_sess->run_tests_recv_side();
+                                                     LOG(FATAL) << "Error of in the server side";
+                                                     if (0)
+                                                     { // for debug, would never use it again.
 
-                NPRDMAPreConnector *pre_con = new NPRDMAPreConnector(sock,
-                                                                     client_ip,
-                                                                     client_port);
-                {
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    NPRDMAdapter *adpter = new NPRDMAdapter(this->conf_);
-                    adpter->resources_init(pre_con);
-                    adpter->resources_create();
-                    adpter->connect_qp();
-                    LOG(INFO) << "Has connected with client: " << pre_con->get_peer_ip();
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                                                         NPRDMAPreConnector *pre_con = new NPRDMAPreConnector(sock,
+                                                                                                              client_ip,
+                                                                                                              client_port);
+                                                         {
+                                                             std::this_thread::sleep_for(std::chrono::seconds(1));
+                                                             NPRDMAdapter *adpter = new NPRDMAdapter(this->conf_);
+                                                             adpter->resources_init(pre_con);
+                                                             adpter->resources_create();
+                                                             adpter->connect_qp();
+                                                             LOG(INFO) << "Has connected with client: " << pre_con->get_peer_ip();
+                                                             std::this_thread::sleep_for(std::chrono::seconds(1));
 #ifndef DEBUG_TWO_CHANNEL
-                    server_test(adpter);
+                                                             server_test(adpter);
 #else
-                    two_channel_test(adpter);
+                                                             two_channel_test(adpter);
 #endif
-                }
+                                                         }
 
-                char local[128] = {0};
-                char remote[128] = {0};
-                int index = 0;
-                do
-                {
-                    memset(local, 0, 128);
-                    memset(remote, 0, 128);
-                    sprintf(local, "[%d] Hello from server.", index++);
-                    pre_con->sock_sync_data(48, local, remote);
-                    LOG(INFO) << "exchange with: ["
-                              << client_ip << ":" << client_port << "]" << remote;
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                                                         char local[128] = {0};
+                                                         char remote[128] = {0};
+                                                         int index = 0;
+                                                         do
+                                                         {
+                                                             memset(local, 0, 128);
+                                                             memset(remote, 0, 128);
+                                                             sprintf(local, "[%d] Hello from server.", index++);
+                                                             pre_con->sock_sync_data(48, local, remote);
+                                                             LOG(INFO) << "exchange with: ["
+                                                                       << client_ip << ":" << client_port << "]" << remote;
+                                                             std::this_thread::sleep_for(std::chrono::seconds(1));
 
-                } while (true);
-            }
-        });
+                                                         } while (true);
+                                                     }
+                                                 });
         service_threads.push_back(connection_thread);
     }
 }

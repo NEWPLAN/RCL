@@ -1,7 +1,8 @@
 #include "rdma_session.h"
-#include <thread>
 #include <chrono>
 #include <glog/logging.h>
+#include <poll.h>
+#include <thread>
 
 RDMASession::RDMASession(int sock, std::string peer_ip, int peer_port, Config conf_)
 {
@@ -32,7 +33,7 @@ int RDMASession::query_status(struct ibv_wc *wc, int num)
     struct resources *res = adpter->get_context();
     // Wait for completion events.
     // If we use busy polling, this step is skipped.
-    if (conf.use_event)
+    if (conf.use_event && false)
     {
         struct ibv_cq *ev_cq;
         void *ev_ctx;
@@ -44,6 +45,46 @@ int RDMASession::query_status(struct ibv_wc *wc, int num)
             LOG(FATAL) << "CQ event for unknown CQ " << ev_cq;
         ibv_ack_cq_events(res->cq, 1);
         if (ibv_req_notify_cq(res->cq, 0))
+            LOG(FATAL) << "Cannot request CQ notification";
+        LOG_EVERY_N(INFO, SHOWN_LOG_EVERN_N) << "[post] get CQ event";
+    }
+    if (conf.use_event)
+    { // using aysnc event to handle event: https://www.jianshu.com/p/4d71f1c8e77c
+        /* The following code will be called each time you need to read a Work Completion */
+        struct pollfd my_pollfd;
+        struct ibv_cq *ev_cq;
+        void *ev_ctx;
+
+        int ms_timeout = 10;
+
+        int rc = 0;
+        /*
+        * poll the channel until it has an event and sleep ms_timeout
+        * milliseconds between any iteration
+        * */
+        my_pollfd.fd = res->channel->fd;
+        my_pollfd.events = POLLIN; //只需要监听POLLIN事件，POLLIN事件意味着有新的cqe发生
+        my_pollfd.revents = 0;
+        do
+        {
+
+            rc = poll(&my_pollfd, 1, ms_timeout); //非阻塞函数，有cqe事件或超时时退出
+            LOG_EVERY_N(INFO, SHOWN_LOG_EVERN_N) << "poll cq with status " << rc;
+        } while (rc == 0);
+        if (rc < 0)
+        {
+            LOG(FATAL) << "poll failed";
+        }
+        // ev_cq = cq;
+        LOG_EVERY_N(INFO, SHOWN_LOG_EVERN_N) << "[pre] get CQ event";
+        /* Wait for the completion event */
+        //获取completion queue event。对于epoll水平触发模式，必须要执行ibv_get_cq_event并将该cqe取出，否则会不断重复唤醒epoll
+        if (ibv_get_cq_event(res->channel, &ev_cq, &ev_ctx))
+            LOG(FATAL) << "Fail to get cq_event";
+        if (ev_cq != res->cq)
+            LOG(FATAL) << "CQ event for unknown CQ " << ev_cq;
+        ibv_ack_cq_events(res->cq, 1);     /* Ack the event */
+        if (ibv_req_notify_cq(res->cq, 0)) /* Request notification upon the next completion event */
             LOG(FATAL) << "Cannot request CQ notification";
         LOG_EVERY_N(INFO, SHOWN_LOG_EVERN_N) << "[post] get CQ event";
     }
